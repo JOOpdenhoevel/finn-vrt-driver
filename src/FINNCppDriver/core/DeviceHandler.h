@@ -127,7 +127,22 @@ namespace Finn {
          * @brief Destroy the Device Handler object
          *
          */
-        ~DeviceHandler() { FINN_LOG(Logger::getLogger(), loglevel::info) << loggerPrefix() << "Tearing down DeviceHandler\n"; };
+        ~DeviceHandler() {
+            FINN_LOG(loglevel::info) << "Tearing down DeviceHandler" << std::endl;
+
+            // First call prepareForShutdown on all buffers
+            for (auto& [_, buffer] : inputBufferMap) {
+                buffer->prepareForShutdown();
+            }
+            for (auto& [_, buffer] : outputBufferMap) {
+                buffer->prepareForShutdown();
+            }
+
+            // Now safe to destroy buffers
+            inputBufferMap.clear();
+            outputBufferMap.clear();
+            FINN_LOG(loglevel::info) << "Destructed Buffers" << std::endl;
+        };
 
         /**
          * @brief Sets the input batch size. Needs to reinitialize all buffers!
@@ -198,20 +213,58 @@ namespace Finn {
         /**
          * @brief Read from the output buffer on the host. This does NOT execute the output kernel
          *
-         * @param outputBufferKernelName
-         * @param forceArchival If true, the data gets copied from the buffer to the long term storage immediately. If false, the newest read data might not actually be returned by this function
+         * @param outputBufferKernelName identifier of the output buffer kernel
+         * @param numItems Number of items to read from the output buffer
          * @return Finn::vector<uint8_t>
          */
-        Finn::vector<uint8_t> retrieveResults(const std::string& outputBufferKernelName, bool forceArchival);
+        Finn::vector<uint8_t> retrieveResults(const std::string& outputBufferKernelName, const std::size_t& numItems);
 
         /**
-         * @brief Return the buffer sizes
+         * @brief Get the size in bytes of a buffer
          *
-         * @param ss
-         * @param bufferName
-         * @return size_t
+         * @param bufferName The name of the buffer
+         * @return size_t Size in bytes
          */
-        size_t size(SIZE_SPECIFIER ss, const std::string& bufferName);
+        size_t getSizeInBytes(const std::string& bufferName);
+
+        /**
+         * @brief Get the feature map size of a buffer
+         *
+         * @param bufferName The name of the buffer
+         * @return size_t Feature map size
+         */
+        size_t getFeatureMapSize(const std::string& bufferName);
+
+        /**
+         * @brief Get the batch size of a buffer
+         *
+         * @param bufferName The name of the buffer
+         * @return size_t Batch size
+         */
+        size_t getBatchSize(const std::string& bufferName);
+
+        /**
+         * @brief Get the total data size of a buffer
+         *
+         * @param bufferName The name of the buffer
+         * @return size_t Total data size
+         */
+        size_t getTotalDataSize(const std::string& bufferName);
+
+        /**
+         * @brief Register a callback function for a buffer
+         *
+         * @param bufferName The name of the buffer
+         * @param callback Callback function to register
+         */
+        void registerCallback(const std::string& bufferName, std::function<void(std::size_t)> callback);
+
+        /**
+         * @brief Drain a buffer
+         *
+         * @param bufferName The name of the buffer to drain
+         */
+        void drain(const std::string& bufferName);
 
         /**
          * @brief Return whether there is a kernel with the given name in this device
@@ -236,7 +289,7 @@ namespace Finn {
         template<typename IteratorType>
         bool store(IteratorType first, IteratorType last, const std::string& inputBufferKernelName) {
             if (!inputBufferMap.contains(inputBufferKernelName)) {
-                FinnUtils::logAndError<std::runtime_error>("Tried accessing kernel/buffer with name " + inputBufferKernelName + " but this kernel / buffer does not exist!");
+                Finn::logAndError<std::runtime_error>("Tried accessing kernel/buffer with name " + inputBufferKernelName + " but this kernel / buffer does not exist!");
             }
             return inputBufferMap.at(inputBufferKernelName)->store(first, last);
         }
@@ -281,13 +334,6 @@ namespace Finn {
         void initializeBufferObjects(const DeviceWrapper& devWrap, unsigned int hostBufferSize, bool pSynchronousInference);
 
          private:
-        /**
-         * @brief A logger prefix to determine the source of a log write
-         *
-         * @return std::string
-         */
-        static std::string loggerPrefix();
-
         /**
          * @brief Store the provided data into the DeviceBuffer
          *

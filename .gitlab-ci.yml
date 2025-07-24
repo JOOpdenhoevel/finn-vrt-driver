@@ -16,19 +16,18 @@ workflow:
 
 .load-modules:
   before_script:
-    - ml vis/Graphviz/8.1.0-GCCcore-12.3.0 fpga xilinx/xrt/2.16 devel/Doxygen/1.9.7-GCCcore-12.3.0 compiler/GCC/12.3.0 devel/CMake/3.26.3-GCCcore-12.3.0 devel/Boost/1.82.0-GCC-12.3.0
-    
-build-dependencies:
+    - ml vis/Graphviz/8.1.0-GCCcore-12.3.0 fpga xilinx/xrt/2.16 devel/Doxygen/1.9.8-GCCcore-13.2.0 compiler/GCC/13.3.0 devel/CMake/3.29.3-GCCcore-13.3.0
+init-repo:
   id_tokens:
     CI_JOB_JWT:
       aud: https://git.uni-paderborn.de
   stage: prepare
   variables:
     #SCHEDULER_PARAMETERS: "-A hpc-prf-ekiapp -p normal -t 2:00:00 -N 1 -n 1 --cpus-per-task=128"
-    SCHEDULER_PARAMETERS: "-A hpc-prf-ekiapp -p hacc -t 2:00:00"
+    SCHEDULER_PARAMETERS: "-A hpc-prf-ekiapp -p hacc -t 0:05:00"
   extends: .load-modules
   script:
-    - ./buildDependencies.sh
+    - git submodule update --init --recursive
   artifacts:
     paths:
       - "deps/"
@@ -40,7 +39,7 @@ build-unittests:
       aud: https://git.uni-paderborn.de
   stage: build
   needs:
-    - build-dependencies
+    - init-repo
   variables:
     #SCHEDULER_PARAMETERS: "-A hpc-prf-ekiapp -p normal -t 2:00:00 -N 1 -n 1 --cpus-per-task=128"
     SCHEDULER_PARAMETERS: "-A hpc-prf-ekiapp -p hacc -t 2:00:00"
@@ -60,7 +59,7 @@ build-integrationtests:
       aud: https://git.uni-paderborn.de
   stage: build
   needs:
-    - build-dependencies
+    - init-repo
   variables:
     #SCHEDULER_PARAMETERS: "-A hpc-prf-ekiapp -p normal -t 2:00:00 -N 1 -n 1 --cpus-per-task=128"
     SCHEDULER_PARAMETERS: "-A hpc-prf-ekiapp -p hacc -t 2:00:00"
@@ -85,7 +84,7 @@ build-regressiontests:
       aud: https://git.uni-paderborn.de
   stage: build
   needs:
-    - build-dependencies
+    - init-repo
   variables:
     #SCHEDULER_PARAMETERS: "-A hpc-prf-ekiapp -p normal -t 2:00:00 -N 1 -n 1 --cpus-per-task=128"
     SCHEDULER_PARAMETERS: "-A hpc-prf-ekiapp -p hacc -t 2:00:00"
@@ -122,13 +121,13 @@ run-unittests:
   stage: test
   needs:
     - build-unittests
-    - build-dependencies
+    - init-repo
   variables:
     #SCHEDULER_PARAMETERS: "-A hpc-prf-ekiapp -p normal -t 0:30:00 -N 1 -n 1 --cpus-per-task=2 --mem-per-cpu=2G"
     SCHEDULER_PARAMETERS: "-A hpc-prf-ekiapp -p hacc -t 2:00:00"
   extends: .load-modules
   script:
-    - export LD_LIBRARY_PATH="$(pwd)/deps/finn_boost/stage/lib/boost/:$LD_LIBRARY_PATH"
+    - export LD_LIBRARY_PATH="$(pwd)/build/libs:$LD_LIBRARY_PATH"
     - cd build
     - ctest --output-on-failure --output-junit ctest-results.xml
   artifacts:
@@ -146,12 +145,12 @@ run-integrationtests:
   stage: test
   needs:
     - build-integrationtests
-    - build-dependencies
+    - init-repo
   variables:
     SCHEDULER_PARAMETERS: "-A hpc-prf-ekiapp -p hacc  -t 0:30:00"
   extends: .load-modules
   script:
-    - export LD_LIBRARY_PATH="$(pwd)/deps/finn_boost/stage/lib/boost/:$LD_LIBRARY_PATH"
+    - export LD_LIBRARY_PATH="$(pwd)/build/libs:$LD_LIBRARY_PATH"
     # Reset FPGAs and setup Host Memory Access
     - ml xilinx/u55c/u55c_gen3x16_xdma_3_202210_1
     - xbutil reset -d 0000:c1:00.1
@@ -165,6 +164,7 @@ run-integrationtests:
     # Test Synchronous Inference with Host memory
     - cp ../../example_networks/jet-structure-classification-with-host-mem/* .
     - ./SyncInference
+    - ./AsyncInference
 
     # Reset FPGAs again
     - xbutil reset -d 0000:c1:00.1
@@ -174,8 +174,7 @@ run-integrationtests:
     - cd ../../build-no-host-mem/integrationtest
     - cp ../../example_networks/jet-structure-classification-without-host-mem/* .
     - ./SyncInference
-
-    # TODO: Run regression tests + asynchronous inference
+    - ./AsyncInference
 
 run-regressiontests:
   id_tokens:
@@ -184,13 +183,13 @@ run-regressiontests:
   stage: test
   needs:
     - build-regressiontests
-    - build-dependencies
+    - init-repo
   variables:
     #SCHEDULER_PARAMETERS: "-A hpc-prf-ekiapp -p normal -t 0:30:00 -N 1 -n 1 --cpus-per-task=2 --mem-per-cpu=2G"
-    SCHEDULER_PARAMETERS: "-A hpc-prf-ekiapp -p hacc -t 0:30:00"
+    SCHEDULER_PARAMETERS: "-A hpc-prf-ekiapp -p hacc -t 10:00:00"
   extends: .load-modules
   script:
-    - export LD_LIBRARY_PATH="$(pwd)/deps/finn_boost/stage/lib/boost/:$LD_LIBRARY_PATH"
+    - export LD_LIBRARY_PATH="$(pwd)/build/libs:$LD_LIBRARY_PATH"
     # Reset FPGAs and setup Host Memory Access
     - ml xilinx/u55c/u55c_gen3x16_xdma_3_202210_1
     - xbutil reset -d 0000:c1:00.1
@@ -202,7 +201,7 @@ run-regressiontests:
 
     - cd build/benchmarks
     - cp ../../example_networks/jet-structure-classification-with-host-mem/* .
-    - ../_deps/googlebenchmark-src/tools/compare.py -a -d results.json benchmarks ../../benchmarks/expectedPerformance.json ./SynchronousInferenceBenchmark | tee benchmark_output.txt
+    - ../_deps/googlebenchmark-src/tools/compare.py -a -d results.json benchmarks ../../benchmarks/expectedPerformance.json ./RegressionTest | tee benchmark_output.txt
     # Extract the OVERALL_GEOMEAN p-value and check if it exceeds the threshold
     - THRESHOLD=0.05
     - GEOMEAN=$(grep "OVERALL_GEOMEAN" benchmark_output.txt)

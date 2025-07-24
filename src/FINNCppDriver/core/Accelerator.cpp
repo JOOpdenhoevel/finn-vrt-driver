@@ -15,18 +15,17 @@
 #include <FINNCppDriver/core/DeviceHandler.h>          // for DeviceHandler, UncheckedStore, ...
 #include <FINNCppDriver/utils/ConfigurationStructs.h>  // IWYU pragma: keep
 #include <FINNCppDriver/utils/FinnUtils.h>             // for logAndError, unreachable
-#include <FINNCppDriver/utils/Logger.h>                // for operator<<, DevNull
 
-#include <algorithm>  // for count_if, find_if, tra...
-#include <cstddef>    // for size_t
-#include <iterator>   // for back_insert_iterator
-#include <stdexcept>  // for runtime_error
+#include <FINNCppDriver/utils/Logger.hpp>  // for operator<<, DevNull
+#include <algorithm>                       // for count_if, find_if, tra...
+#include <cstddef>                         // for size_t
+#include <iterator>                        // for back_insert_iterator
+#include <stdexcept>                       // for runtime_error
 
 namespace Finn {
-    std::string Accelerator::loggerPrefix() { return "[Accelerator] "; }
 
     Accelerator::Accelerator(const std::vector<DeviceWrapper>& deviceDefinitions, bool synchronousInference, unsigned int hostBufferSize) {
-        FINN_LOG(Logger::getLogger(), loglevel::info) << loggerPrefix() << "Constructing Accelerator\n";
+        FINN_LOG(loglevel::info) << "Constructing Accelerator\n";
         std::transform(deviceDefinitions.begin(), deviceDefinitions.end(), std::back_inserter(devices), [hostBufferSize, synchronousInference](const DeviceWrapper& dew) { return DeviceHandler(dew, synchronousInference, hostBufferSize); });
     }
 
@@ -34,7 +33,7 @@ namespace Finn {
     /****** GETTER / SETTER ******/
     DeviceHandler& Accelerator::getDeviceHandler(unsigned int deviceIndex) {
         if (!containsDevice(deviceIndex)) {
-            FinnUtils::logAndError<std::runtime_error>("Tried retrieving a deviceHandler with an unknown index " + std::to_string(deviceIndex));
+            Finn::logAndError<std::runtime_error>("Tried retrieving a deviceHandler with an unknown index " + std::to_string(deviceIndex));
         }
         auto isCorrectHandler = [deviceIndex](const DeviceHandler& dhh) { return dhh.getDeviceIndex() == deviceIndex; };
         if (auto dhIt = std::find_if(devices.begin(), devices.end(), isCorrectHandler); dhIt != devices.end()) {
@@ -58,7 +57,7 @@ namespace Finn {
     // cppcheck-suppress unusedFunction
     [[maybe_unused]] UncheckedStore Accelerator::storeFactory(const unsigned int deviceIndex, const std::string& inputBufferKernelName) {
         if (devices.empty()) {
-            FinnUtils::logAndError<std::runtime_error>("Something went wrong. The device list should not be empty.");
+            Finn::logAndError<std::runtime_error>("Something went wrong. The device list should not be empty.");
         }
         if (containsDevice(deviceIndex)) {
             DeviceHandler& devHand = getDeviceHandler(deviceIndex);
@@ -66,7 +65,7 @@ namespace Finn {
                 return {devHand, inputBufferKernelName};
             }
         }
-        FinnUtils::logAndError<std::runtime_error>("Tried creating a store-closure on a deviceIndex or kernelBufferName which don't exist! Queried index: " + std::to_string(deviceIndex) + ", KernelBufferName: " + inputBufferKernelName);
+        Finn::logAndError<std::runtime_error>("Tried creating a store-closure on a deviceIndex or kernelBufferName which don't exist! Queried index: " + std::to_string(deviceIndex) + ", KernelBufferName: " + inputBufferKernelName);
         FinnUtils::unreachable();
         return {devices[0], ""};
     }
@@ -102,21 +101,68 @@ namespace Finn {
         return ret;
     }
 
-    Finn::vector<uint8_t> Accelerator::getOutputData(const unsigned int deviceIndex, const std::string& outputBufferKernelName, bool forceArchival) {
+    // cppcheck-suppress unusedFunction
+    [[maybe_unused]] Finn::vector<uint8_t> Accelerator::getOutputData(const unsigned int deviceIndex, const std::string& outputBufferKernelName, const std::size_t& numItems) {
         if (containsDevice(deviceIndex)) {
-            FINN_LOG_DEBUG(Logger::getLogger(), loglevel::info) << loggerPrefix() << "Retrieving results from the specified device index! [accelerator.retrieveResults()]";
-            return getDeviceHandler(deviceIndex).retrieveResults(outputBufferKernelName, forceArchival);
+            FINN_LOG_DEBUG(loglevel::info) << "Retrieving results from the specified device index!";
+            return getDeviceHandler(deviceIndex).retrieveResults(outputBufferKernelName, numItems);
         } else {
             if (containsDevice(0)) {
-                FINN_LOG_DEBUG(Logger::getLogger(), loglevel::info) << loggerPrefix() << "Retrieving results from 0  device index! [accelerator.retrueveResults()]";
-                return getDeviceHandler(0).retrieveResults(outputBufferKernelName, forceArchival);
+                FINN_LOG_DEBUG(loglevel::info) << "Retrieving results from 0  device index!";
+                return getDeviceHandler(0).retrieveResults(outputBufferKernelName, numItems);
             } else {
                 // cppcheck-suppress missingReturn
-                FinnUtils::logAndError<std::runtime_error>("Tried receiving data in a devicehandler with an invalid deviceIndex!");
+                Finn::logAndError<std::runtime_error>("Tried receiving data in a devicehandler with an invalid deviceIndex!");
             }
         }
     }
 
-    size_t Accelerator::size(SIZE_SPECIFIER ss, unsigned int deviceIndex, const std::string& bufferName) { return getDeviceHandler(deviceIndex).size(ss, bufferName); }
+    Finn::vector<uint8_t> Accelerator::getOutputData(const unsigned int deviceIndex, const std::string& outputBufferKernelName) {
+        std::size_t numItems = getDeviceHandler(deviceIndex).getTotalDataSize(outputBufferKernelName);
+        return getDeviceHandler(deviceIndex).retrieveResults(outputBufferKernelName, numItems);
+    }
 
+    size_t Accelerator::getSizeInBytes(unsigned int deviceIndex, const std::string& bufferName) {
+        if (containsDevice(deviceIndex)) {
+            return getDeviceHandler(deviceIndex).getSizeInBytes(bufferName);
+        }
+        return 0;
+    }
+
+    size_t Accelerator::getFeatureMapSize(unsigned int deviceIndex, const std::string& bufferName) {
+        if (containsDevice(deviceIndex)) {
+            return getDeviceHandler(deviceIndex).getFeatureMapSize(bufferName);
+        }
+        return 0;
+    }
+
+    size_t Accelerator::getBatchSize(unsigned int deviceIndex, const std::string& bufferName) {
+        if (containsDevice(deviceIndex)) {
+            return getDeviceHandler(deviceIndex).getBatchSize(bufferName);
+        }
+        return 0;
+    }
+
+    size_t Accelerator::getTotalDataSize(unsigned int deviceIndex, const std::string& bufferName) {
+        if (containsDevice(deviceIndex)) {
+            return getDeviceHandler(deviceIndex).getTotalDataSize(bufferName);
+        }
+        return 0;
+    }
+
+    void Accelerator::registerCallback(unsigned int deviceIndex, const std::string& bufferName, std::function<void(std::size_t)> callback) {
+        if (containsDevice(deviceIndex)) {
+            getDeviceHandler(deviceIndex).registerCallback(bufferName, callback);
+        } else {
+            Finn::logAndError<std::runtime_error>("Tried registering a callback on a deviceIndex which does not exist! Queried index: " + std::to_string(deviceIndex) + ", KernelBufferName: " + bufferName);
+        }
+    }
+
+    void Accelerator::drain(unsigned int deviceIndex, const std::string& bufferName) {
+        if (containsDevice(deviceIndex)) {
+            getDeviceHandler(deviceIndex).drain(bufferName);
+        } else {
+            Finn::logAndError<std::runtime_error>("Tried draining a buffer on a deviceIndex which does not exist! Queried index: " + std::to_string(deviceIndex) + ", KernelBufferName: " + bufferName);
+        }
+    }
 }  // namespace Finn
