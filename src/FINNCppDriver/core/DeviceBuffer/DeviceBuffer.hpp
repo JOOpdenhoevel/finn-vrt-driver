@@ -52,12 +52,12 @@ namespace Finn {
          */
         size_t mapSize;
         /**
-         * @brief XRT buffer object; This is used to interact with FPGA memory
+         * @brief VRT buffer object; This is used to interact with FPGA memory
          *
          */
         vrt::Buffer<T> internalBuffer;
         /**
-         * @brief XRT IP core associated with this Buffer
+         * @brief VRT kernel associated with this Buffer
          *
          */
         vrt::Kernel assocKernel;

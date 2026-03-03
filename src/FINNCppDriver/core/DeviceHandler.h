@@ -253,19 +253,16 @@ namespace Finn {
         /**
          * @brief Stores an input into the Device Buffer
          *
-         * @tparam IteratorType
-         * @param first Iterator to first element of input
-         * @param last Iterator to end of input
+         * @param data The input data to write
          * @param inputBufferKernelName identifier of the buffer kernel
          * @return true success
          * @return false failure
          */
-        template<typename IteratorType>
-        bool store(IteratorType first, IteratorType last, const std::string& inputBufferKernelName) {
+        bool store(std::span<const uint8_t> data, const std::string& inputBufferKernelName) {
             if (!inputBufferMap.contains(inputBufferKernelName)) {
                 Finn::logAndError<std::runtime_error>("Tried accessing kernel/buffer with name " + inputBufferKernelName + " but this kernel / buffer does not exist!");
             }
-            return inputBufferMap.at(inputBufferKernelName)->store(first, last);
+            return inputBufferMap.at(inputBufferKernelName)->store(data);
         }
 
         /**

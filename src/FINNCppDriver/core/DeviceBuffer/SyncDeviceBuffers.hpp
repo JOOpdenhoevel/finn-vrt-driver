@@ -88,6 +88,9 @@ namespace Finn {
          * @return false
          */
         bool store(std::span<const T> data) override {
+            if (data.size() > this->mapSize) {
+                throw std::runtime_error("The input data size does not match the internal buffer size.");
+            }
             for (std::size_t i = 0; i < data.size(); i++) {
                 this->internalBuffer[i] = data[i];
             }
