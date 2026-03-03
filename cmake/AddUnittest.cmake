@@ -15,7 +15,7 @@ function(add_unittest test_name)
     gtest
     finnc_options
     finnc_core_test
-    xrt_mock
+    vrt
     OpenMP::OpenMP_CXX
   )
 

@@ -19,7 +19,9 @@
 #include <span>
 
 #include "gtest/gtest.h"
-#include "xrt/xrt_device.h"
+
+// VRT includes
+#include "api/device.hpp"
 
 // Provides config and shapes for testing
 #include "UnittestConfig.h"
@@ -27,16 +29,15 @@ using namespace FinnUnittest;
 
 class DBTest : public ::testing::Test {
      protected:
-    xrt::device device;
-    xrt::uuid uuid;
+    vrt::Device device = vrt::Device("NULL", "../example_networks/single-layer-linear/finn_sim.vbin");
     FinnUtils::BufferFiller filler = FinnUtils::BufferFiller(0, 255);
 
     void SetUp() override {}
-    void TearDown() override {}
+    void TearDown() override { device.cleanup(); }
 };
 
 TEST_F(DBTest, DBStoreTest) {
-    Finn::SyncDeviceInputBuffer<uint8_t> buffer("InputBuffer", device, uuid, FinnUnittest::myShapePacked, FinnUnittest::parts);
+    Finn::SyncDeviceInputBuffer<uint8_t> buffer("InputBuffer", device, FinnUnittest::myShapePacked, FinnUnittest::parts);
     Finn::vector<uint8_t> data(buffer.getFeatureMapSize() * buffer.getBatchSize());
     FinnUtils::BufferFiller(0, 255).fillRandom(data.begin(), data.end());
     buffer.store({data.begin(), data.end()});
@@ -44,7 +45,7 @@ TEST_F(DBTest, DBStoreTest) {
 }
 
 TEST_F(DBTest, DBOutputTest) {
-    Finn::SyncDeviceOutputBuffer<uint8_t> buffer("OutputBuffer", device, uuid, FinnUnittest::myShapePacked, FinnUnittest::parts);
+    Finn::SyncDeviceOutputBuffer<uint8_t> buffer("OutputBuffer", device, FinnUnittest::myShapePacked, FinnUnittest::parts);
     Finn::vector<uint8_t> data(buffer.getTotalDataSize());
     FinnUtils::BufferFiller(0, 255).fillRandom(data.begin(), data.end());
     buffer.testSetMap(data);
@@ -52,7 +53,6 @@ TEST_F(DBTest, DBOutputTest) {
     auto vec = buffer.getData(buffer.getTotalDataSize());
     EXPECT_EQ(data, vec);
 }
-
 
 int main(int argc, char** argv) {
     ::testing::InitGoogleTest(&argc, argv);

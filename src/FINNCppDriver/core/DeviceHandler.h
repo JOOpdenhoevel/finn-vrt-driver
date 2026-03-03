@@ -29,8 +29,8 @@
 #include <unordered_map>  // for unordered_map
 #include <vector>         // for vector
 
-#include "xrt/xrt_device.h"  // for device
-#include "xrt/xrt_uuid.h"    // for uuid
+// VRT include
+#include "api/device.hpp"
 
 namespace Finn {
     class UncheckedStore;
@@ -61,23 +61,10 @@ namespace Finn {
         uint batchsize = 1;
 
         /**
-         * @brief The xrt device itself
+         * @brief The vrt device itself
          *
          */
-        xrt::device device;
-
-        /**
-         * @brief The local device index. This is used to create the xrt::device. TODO(bwintermann): Fix for multiple nodes (fpgas are always only numbered 0-2, not 0-2, 3-5, etc.)
-         *
-         */
-        unsigned int xrtDeviceIndex;
-
-        /**
-         * @brief Path to this devices bitstream file. TODO(linusjun,bwintermann): Change to std::fs::path
-         *
-         */
-        std::string xclbinPath;
-        xrt::uuid uuid;
+        vrt::Device device;
 
         /**
          * @brief Map containing all DeviceInputBuffers for this device
@@ -127,22 +114,7 @@ namespace Finn {
          * @brief Destroy the Device Handler object
          *
          */
-        ~DeviceHandler() {
-            FINN_LOG(loglevel::info) << "Tearing down DeviceHandler" << std::endl;
-
-            // First call prepareForShutdown on all buffers
-            for (auto& [_, buffer] : inputBufferMap) {
-                buffer->prepareForShutdown();
-            }
-            for (auto& [_, buffer] : outputBufferMap) {
-                buffer->prepareForShutdown();
-            }
-
-            // Now safe to destroy buffers
-            inputBufferMap.clear();
-            outputBufferMap.clear();
-            FINN_LOG(loglevel::info) << "Destructed Buffers" << std::endl;
-        };
+        ~DeviceHandler();
 
         /**
          * @brief Sets the input batch size. Needs to reinitialize all buffers!
@@ -158,19 +130,21 @@ namespace Finn {
          */
         static void checkDeviceWrapper(const DeviceWrapper& devWrap);
 
+        const DeviceWrapper& getDeviceWrapper() const;
+
         /**
-         * @brief Get the Device Index of this device handler
+         * @brief Get the bus:device:function identifier of this device handler
          *
          * @return unsigned int
          */
-        unsigned int getDeviceIndex() const;
+        const std::string& getBDF() const;
 
         /**
-         * @brief Return a reference to the actual xrt::device object used
+         * @brief Return a reference to the actual vrt::device object used
          *
-         * @return xrt::device&
+         * @return vrt::Device
          */
-        xrt::device& getDevice();
+        vrt::Device getDevice();
 
         /**
          * @brief Get the Input Buffer Map
@@ -312,18 +286,6 @@ namespace Finn {
 
 
          protected:
-        /**
-         * @brief Initialize the device by it's given xrtDeviceIndex, initializing the "device" member variable
-         *
-         */
-        void initializeDevice();
-
-        /**
-         * @brief Loading the given xclbin by it's path. Sets the "uuid" member variable
-         *
-         */
-        void loadXclbinSetUUID();
-
         /**
          * @brief Create DeviceBuffers for every idma/odma in the DeviceWrapper.
          *

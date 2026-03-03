@@ -68,10 +68,6 @@
     #include STRNGFY(FINN_HEADER_LOCATION)  // IWYU pragma: keep
 #endif
 
-// XRT
-#include "xrt/xrt_device.h"
-#include "xrt/xrt_kernel.h"
-
 /**
  * @brief Configure ASanitizer to circumvent some buggy behavior with std::to_string
  *
@@ -88,31 +84,6 @@ extern "C" const char* __asan_default_options() { return "detect_odr_violation=1
  * @return std::string
  */
 std::string finnMainLogPrefix() { return "[FINNDriver] "; }
-
-/**
- * @brief Log some initial information about the device and the kernels used
- *
- * @param logger
- * @param device
- * @param filename
- */
-void logDeviceInformation(xrt::device& device, const std::string& filename) {
-    auto bdfInfo = device.get_info<xrt::info::device::bdf>();
-    FINN_LOG(loglevel::info) << "BDF: " << bdfInfo;
-    auto xclbin = xrt::xclbin(filename);
-    auto kernels = xclbin.get_kernels();
-
-    for (auto&& knl : kernels) {
-        FINN_LOG(loglevel::info) << "Kernel: " << knl.get_name() << "\n";
-        for (auto&& arg : knl.get_args()) {
-            FINN_LOG(loglevel::info) << "\t\t\tArg: " << arg.get_name() << " Size: " << arg.get_size() << "\n";
-        }
-
-        for (auto&& compUnit : knl.get_cus()) {
-            FINN_LOG(loglevel::info) << " \t\t\tCU: " << compUnit.get_name() << " Size: " << compUnit.get_size() << "\n";
-        }
-    }
-}
 
 /**
  * @brief A simple helper function to create a Finn Driver from a given config file
@@ -222,7 +193,6 @@ void runThroughputTestImpl(Finn::Driver<true>& baseDriver, std::size_t elementCo
  */
 void runThroughputTest(Finn::Driver<true>& baseDriver) {
     FINN_LOG(loglevel::info) << finnMainLogPrefix() << "Device Information: ";
-    logDeviceInformation(baseDriver.getDeviceHandler(0).getDevice(), baseDriver.getConfig().deviceWrappers[0].xclbin);
 
     size_t elementcount = FinnUtils::shapeToElements((std::static_pointer_cast<Finn::ExtendedBufferDescriptor>(baseDriver.getConfig().deviceWrappers[0].idmas[0]))->normalShape);
     uint batchSize = baseDriver.getBatchSize();
@@ -349,7 +319,6 @@ void inferUnsignedInteger(Finn::Driver<true>& baseDriver, xt::detail::npy_file& 
  */
 void runWithInputFile(Finn::Driver<true>& baseDriver, const std::vector<std::string>& inputFiles, const std::vector<std::string>& outputFiles) {
     FINN_LOG(loglevel::info) << finnMainLogPrefix() << "Running driver on input files";
-    logDeviceInformation(baseDriver.getDeviceHandler(0).getDevice(), baseDriver.getConfig().deviceWrappers[0].xclbin);
 
     for (auto&& [inp, out] = std::tuple{inputFiles.begin(), outputFiles.begin()}; inp != inputFiles.end(); ++inp, ++out) {
         // load npy file and process it

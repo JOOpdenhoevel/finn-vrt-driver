@@ -22,8 +22,6 @@
 #include <FINNCppDriver/utils/join.hpp>
 
 #include "gtest/gtest.h"
-#include "xrt/xrt_device.h"
-#include "xrt/xrt_kernel.h"
 
 // Provides config and shapes
 #include "UnittestConfig.h"

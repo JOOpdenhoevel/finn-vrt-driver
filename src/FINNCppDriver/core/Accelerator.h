@@ -102,31 +102,31 @@ namespace Finn {
         std::vector<DeviceHandler>::iterator end();
 
         /**
-         * @brief Return a reference to the deviceHandler with the given index. Crashes the driver if the index is invalid. To avoid accesses to uncertain indices, use Accelerator::containsDevice first.
+         * @brief Return a reference to the deviceHandler with the given BDF identifier. Crashes the driver if the identifier is invalid. To avoid accesses to uncertain identifiers, use Accelerator::containsDevice first.
          *
-         * @param deviceIndex
+         * @param bdf
          * @return DeviceHandler&
          */
-        DeviceHandler& getDeviceHandler(unsigned int deviceIndex);
+        DeviceHandler& getDeviceHandler(const std::string& bdf);
 
         /**
-         * @brief Checks whether a device handler with the given device index exists
+         * @brief Checks whether a device handler with the given BDF identifier exists
          *
-         * @param deviceIndex
+         * @param bdf
          * @return true
          * @return false
          */
-        bool containsDevice(unsigned int deviceIndex);
+        bool containsDevice(const std::string& bdf);
 
         /**
-         * @brief Factory to create a functon that can store data without index checks because they are checked beforehand. The created function only takes the data vector.
+         * @brief Factory to create a functon that can store data without identifier checks because they are checked beforehand. The created function only takes the data vector.
          * @attention (Currently on this commit) This also does NOT do checks on the length of the passed data vector and is _NOT THREAD SAFE_!
          *
-         * @param deviceIndex
+         * @param bdf
          * @param inputBufferKernelName
          * @return UncheckedStore
          */
-        UncheckedStore storeFactory(unsigned int deviceIndex, const std::string& inputBufferKernelName);
+        UncheckedStore storeFactory(const std::string& bdf, const std::string& inputBufferKernelName);
 
         /**
          * @brief Set the Batch Size
@@ -162,74 +162,74 @@ namespace Finn {
         /**
          * @brief Return a vector of output samples.
          *
-         * @param deviceIndex
-         * @param outputBufferKernelName
+         * @param bdf The identifier of the device to read from
+         * @param outputBufferKernelName The name of the output buffer kernel
          * @param numItems Number of items to read from the output buffer
          * @return std::vector<std::vector<uint8_t>>
          */
-        Finn::vector<uint8_t> getOutputData(unsigned int deviceIndex, const std::string& outputBufferKernelName, const std::size_t& numItems);
+        Finn::vector<uint8_t> getOutputData(const std::string& bdf, const std::string& outputBufferKernelName, const std::size_t& numItems);
 
         /**
          * @brief Return a vector of output samples.
          *
-         * @param deviceIndex The index of the device to read from
+         * @param bdf The identifier of the device to read from
          * @param outputBufferKernelName The name of the output buffer kernel
          * @return Finn::vector<uint8_t> Vector containing output data
          */
-        Finn::vector<uint8_t> getOutputData(unsigned int deviceIndex, const std::string& outputBufferKernelName);
+        Finn::vector<uint8_t> getOutputData(const std::string& bdf, const std::string& outputBufferKernelName);
 
         /**
          * @brief Get the size in bytes of a buffer
          *
-         * @param deviceIndex The index of the device
+         * @param bdf The identifier of the device
          * @param bufferName The name of the buffer
          * @return size_t Size in bytes
          */
-        size_t getSizeInBytes(unsigned int deviceIndex, const std::string& bufferName);
+        size_t getSizeInBytes(const std::string& bdf, const std::string& bufferName);
 
         /**
          * @brief Get the feature map size of a buffer
          *
-         * @param deviceIndex The index of the device
+         * @param bdf The identifier of the device
          * @param bufferName The name of the buffer
          * @return size_t Feature map size
          */
-        size_t getFeatureMapSize(unsigned int deviceIndex, const std::string& bufferName);
+        size_t getFeatureMapSize(const std::string& bdf, const std::string& bufferName);
 
         /**
          * @brief Get the batch size of a buffer
          *
-         * @param deviceIndex The index of the device
+         * @param bdf The identifier of the device
          * @param bufferName The name of the buffer
          * @return size_t Batch size
          */
-        size_t getBatchSize(unsigned int deviceIndex, const std::string& bufferName);
+        size_t getBatchSize(const std::string& bdf, const std::string& bufferName);
 
         /**
          * @brief Get the total data size of a buffer
          *
-         * @param deviceIndex The index of the device
+         * @param bdf The identifier of the device
          * @param bufferName The name of the buffer
          * @return size_t Total data size
          */
-        size_t getTotalDataSize(unsigned int deviceIndex, const std::string& bufferName);
+        size_t getTotalDataSize(const std::string& bdf, const std::string& bufferName);
 
         /**
          * @brief Register a callback function for a buffer
          *
-         * @param deviceIndex The index of the device
+         * @param bdf The identifier of the device
          * @param bufferName The name of the buffer
          * @param callback Callback function to register
          */
-        void registerCallback(unsigned int deviceIndex, const std::string& bufferName, std::function<void(std::size_t)> callback);
+        void registerCallback(const std::string& bdf, const std::string& bufferName, std::function<void(std::size_t)> callback);
 
         /**
          * @brief Drain a buffer on the specified device
          *
-         * @param deviceIndex The index of the device
+         * @param bdf The identifier of the device
          * @param bufferName The name of the buffer to drain
          */
-        void drain(unsigned int deviceIndex, const std::string& bufferName);
+        void drain(const std::string& bdf, const std::string& bufferName);
     };
 
 

@@ -15,7 +15,7 @@ function(add_benchmark benchmark_name)
     PUBLIC
     finnc_options
     finnc_core
-    xrt_coreutil
+    vrt
     benchmark::benchmark
     OpenMP::OpenMP_CXX
   )

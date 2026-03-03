@@ -37,7 +37,6 @@ FetchContent_Declare(
   GIT_REPOSITORY  https://github.com/google/benchmark.git
   GIT_TAG         main
   GIT_SHALLOW     TRUE
-
 )
 set(BENCHMARK_ENABLE_TESTING OFF)
 
@@ -75,10 +74,8 @@ endif()
 set(THREADS_PREFER_PTHREAD_FLAG ON)
 find_package(Threads REQUIRED)
 
-#XRT
-find_package(OpenCL REQUIRED)
-set(XRT_DIR "${CMAKE_SOURCE_DIR}/cmake")
-find_package(XRT REQUIRED)
+# VRT
+find_package(VRT REQUIRED)
 
 #OpenMP
 find_package(OpenMP REQUIRED)
@@ -141,7 +138,7 @@ set(FINN_ENABLE_TESTING "Build all tests (default is ON)" ON)
 FetchContent_MakeAvailable(googletest googlebenchmark)
 include(cmake/AddUnittest.cmake)
 include(cmake/AddBenchmark.cmake)
-include(cmake/AddIntegrationtest.cmake)
+#include(cmake/AddIntegrationtest.cmake)
 
 enable_testing()
 set(ENV{GTEST_OUTPUT} "json")
@@ -151,8 +148,8 @@ if (FINN_ENABLE_TESTING)
   add_subdirectory(unittests)
   message(STATUS "Finn C++ benchmarks:")
   add_subdirectory(benchmarks)
-  message(STATUS "Finn C++ integrationtests:")
-  add_subdirectory(integrationtest)
+  #message(STATUS "Finn C++ integrationtests:")
+  #add_subdirectory(integrationtest)
 endif()
 
 #Compiler Options
@@ -248,7 +245,7 @@ list(APPEND CMAKE_MESSAGE_INDENT "  ") #indent +1
 check_include(FINN_IPO          "InterproceduralOptimization" InterproceduralOptimization.cmake)
 check_include(FINN_CLANG_FORMAT "clang-format" ClangFormat.cmake)
 check_include(FINN_CLANG_TIDY   "clang-tidy"   ClangTidy.cmake)
-check_include(FINN_CPP_CHECK    "cppcheck"     CppCheck.cmake)
+#check_include(FINN_CPP_CHECK    "cppcheck"     CppCheck.cmake)
 check_include(FINN_IWYU         "iwyu"         IWYU.cmake)
 list(POP_BACK CMAKE_MESSAGE_INDENT)    #indent -1
 

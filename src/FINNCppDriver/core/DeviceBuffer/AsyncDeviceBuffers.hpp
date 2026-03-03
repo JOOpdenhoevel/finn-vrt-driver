@@ -20,8 +20,6 @@
 #include <functional>
 #include <thread>
 
-#include "ert.h"
-
 namespace Finn {
 
     namespace detail {
@@ -110,9 +108,9 @@ namespace Finn {
          */
         void runInternal(std::stop_token stoken) {
             while (!stoken.stop_requested()) {
-                this->sync(this->loadMap(stoken));
+                this->sync();
                 this->execute(this->shapePacked[0]);
-                bool success = this->wait(stoken);  // Wait until the kernel is done executing
+                bool success = this->wait();  // Wait until the kernel is done executing
                 if (!success) {
                     FINN_LOG_DEBUG(loglevel::error) << "Kernel execution failed";
                 }
@@ -130,8 +128,8 @@ namespace Finn {
          * @param pShapePacked packed shape of input
          * @param batchSize size of ringbuffer in input elements (batch elements)
          */
-        AsyncDeviceInputBuffer(const std::string& pCUName, xrt::device& device, xrt::uuid& pDevUUID, const shapePacked_t& pShapePacked, unsigned int batchSize)
-            : DeviceInputBuffer<T>(pCUName, device, pDevUUID, pShapePacked, batchSize),
+        AsyncDeviceInputBuffer(const std::string& pCUName, vrt::Device& device, const shapePacked_t& pShapePacked, unsigned int batchSize)
+            : DeviceInputBuffer<T>(pCUName, device, pShapePacked, batchSize),
               detail::AsyncBufferWrapper<T>(batchSize * FinnUtils::shapeToElements(pShapePacked)),
               workerThread(std::jthread(std::bind_front(&AsyncDeviceInputBuffer::runInternal, this))) {}
 
@@ -253,11 +251,11 @@ namespace Finn {
             FINN_LOG_DEBUG(loglevel::info) << "Starting to read from the device";
             while (!stoken.stop_requested()) {
                 this->execute(this->shapePacked[0]);
-                bool success = this->wait(stoken);  // Wait until the kernel is done executing
+                bool success = this->wait();  // Wait until the kernel is done executing
                 if (!success) {
                     FINN_LOG_DEBUG(loglevel::error) << "Kernel execution failed";
                 }
-                this->sync(this->totalDataSize);
+                this->sync();
                 saveMap();
                 callback(this->queue.size() - (this->queue.size() % this->totalDataSize));  // Notify that data is available in the queue
             }
@@ -273,8 +271,8 @@ namespace Finn {
          * @param pShapePacked packed shape of input
          * @param batchSize batch size of the output
          */
-        AsyncDeviceOutputBuffer(const std::string& pCUName, xrt::device& device, xrt::uuid& pDevUUID, const shapePacked_t& pShapePacked, unsigned int batchSize)
-            : DeviceOutputBuffer<T>(pCUName, device, pDevUUID, pShapePacked, batchSize),
+        AsyncDeviceOutputBuffer(const std::string& pCUName, vrt::Device& device, const shapePacked_t& pShapePacked, unsigned int batchSize)
+            : DeviceOutputBuffer<T>(pCUName, device, pShapePacked, batchSize),
               detail::AsyncBufferWrapper<T>(2 * batchSize * FinnUtils::shapeToElements(pShapePacked)),  // Make output buffer map twice as large to circumvent a very rare deadlock in the case where one thread handles IO alone.
               workerThread(std::jthread(std::bind_front(&AsyncDeviceOutputBuffer::readInternal, this))){};
 
@@ -385,7 +383,11 @@ namespace Finn {
          */
         bool saveMap() {
             FINN_LOG_DEBUG(loglevel::info) << "Data transfer of output from FPGA!\n";
-            if (this->queue.enqueue_bulk(this->map, this->totalDataSize) == this->totalDataSize) {
+            std::vector<T> map(this->totalDataSize);
+            for (std::size_t i = 0; i < this->totalDataSize; i++) {
+                map[i] = this->internalBuffer[i];
+            }
+            if (this->queue.enqueue_bulk(map.begin(), this->totalDataSize) == this->totalDataSize) {
                 FINN_LOG_DEBUG(loglevel::info) << this->loggerPrefix() << "Stored " << this->totalDataSize << " elements in the FIFO";
                 return true;
             } else {

@@ -23,29 +23,9 @@
 #include <span>
 #include <thread>
 
-#include "experimental/xrt_ip.h"
-#include "xrt.h"
-#include "xrt/xrt_bo.h"
-#include "xrt/xrt_kernel.h"
-
-/**
- * @brief Magic value used by XRT to start kernel
- *
- */
-constexpr uint32_t IP_START = 0x1;
-/**
- * @brief Magic value used by XRT to see if a kernel is idling
- *
- */
-constexpr uint32_t IP_IDLE = 0x4;
-/**
- * @brief Magic value used by XRT as offset
- *
- */
-constexpr uint32_t CSR_OFFSET = 0x0;
-
-// Forward declares
-enum ert_cmd_state;
+// VRT includes
+#include "api/buffer.hpp"
+#include "api/kernel.hpp"
 
 namespace Finn {
     /**
@@ -75,22 +55,12 @@ namespace Finn {
          * @brief XRT buffer object; This is used to interact with FPGA memory
          *
          */
-        xrt::bo internalBo;
+        vrt::Buffer<T> internalBuffer;
         /**
          * @brief XRT IP core associated with this Buffer
          *
          */
-        xrt::ip assocIPCore;
-        /**
-         * @brief Mapped buffer; Part of the XRT buffer object
-         *
-         */
-        T* map;
-        /**
-         * @brief 64 bit address of the buffer located on the FPGA card
-         *
-         */
-        const long long bufAdr;
+        vrt::Kernel assocKernel;
 
         /**
          * @brief Total size of data in elements
@@ -103,49 +73,7 @@ namespace Finn {
          */
         std::size_t featureMapSize;
 
-        /**
-         * @brief Busy wait until the IP core is done executing
-         *
-         * @param stopToken Token to request stopping the wait
-         */
-        void busyWait(std::stop_token stopToken = {}) {
-            // Wait until the IP is DONE
-            uint32_t axi_ctrl = 0;
-            while ((axi_ctrl & IP_IDLE) != IP_IDLE && !stopToken.stop_requested()) {
-                axi_ctrl = assocIPCore.read_register(CSR_OFFSET);
-            }
-        }
-
          private:
-        /**
-         * @brief Get the group ID for a compute unit
-         *
-         * @param device XRT device
-         * @param uuid Device UUID
-         * @param computeUnit Name of the compute unit
-         * @return unsigned int Group ID
-         */
-        unsigned int getGroupId(const xrt::device& device, const xrt::uuid& uuid, const std::string& computeUnit) { return xrt::kernel(device, uuid, computeUnit).group_id(0); }
-
-        /**
-         * @brief Used for deciding if execute needs to write data registers or not
-         *
-         */
-        uint32_t oldRepetitions = 0;
-
-        /**
-         * @brief Get flags for buffer object creation based on host memory access
-         *
-         * @param hostMemoryAccess Whether host memory access is enabled
-         * @return consteval static xrt::bo::flags Buffer object flags
-         */
-        consteval static xrt::bo::flags getFlags(bool hostMemoryAccess) {
-            if (hostMemoryAccess) {
-                return xrt::bo::flags::host_only;
-            }
-            return xrt::bo::flags::normal;
-        }
-
          public:
         /**
          * @brief Construct a new Device Buffer object
@@ -155,19 +83,18 @@ namespace Finn {
          * @param pAssociatedKernel XRT kernel
          * @param pShapePacked packed shape of input
          */
-        DeviceBuffer(const std::string& pCUName, xrt::device& device, xrt::uuid& pDevUUID, const shapePacked_t& pShapePacked, unsigned int batchSize = 1)
+        DeviceBuffer(const std::string& pCUName, vrt::Device& device, const shapePacked_t& pShapePacked, unsigned int batchSize = 1)
             : name(pCUName),
               shapePacked(pShapePacked),
               mapSize(FinnUtils::getActualBufferSize(FinnUtils::shapeToElements(pShapePacked) * batchSize)),
-              internalBo(xrt::bo(device, mapSize * sizeof(T), DeviceBuffer::getFlags(Finn::Options::hostMemoryAccess), 0)),
-              map(internalBo.template map<T*>()),
-              assocIPCore(xrt::ip(device, pDevUUID, pCUName)),  // Using xrt::kernel/getGroupId after this point leads to a total bricking of the FPGA card!!
-              bufAdr(internalBo.address()) {
+              internalBuffer(device, mapSize, vrt::MemoryRangeType::DDR),
+              assocKernel(device, pCUName) {
             shapePacked[0] = batchSize;
             FINN_LOG(loglevel::info) << "New Device Buffer of size " << mapSize * sizeof(T) << "bytes with group id " << 0 << "\n";
-            FINN_LOG(loglevel::info) << "Host Memory Access enabled: " << Finn::Options::hostMemoryAccess << "\n";
             FINN_LOG(loglevel::info) << "Initializing DeviceBuffer " << name << " (SHAPE PACKED: " << FinnUtils::shapeToString(pShapePacked) << " inputs of the given shape, MAP SIZE: " << mapSize << ")\n";
-            std::fill(map, map + mapSize, 0);
+            for (size_t i = 0; i < mapSize; i++) {
+                internalBuffer[i] = 0;
+            }
             totalDataSize = FinnUtils::shapeToElements(pShapePacked) * batchSize;
             featureMapSize = totalDataSize / shapePacked[0];
             FINN_LOG(loglevel::info) << "Map has totalSize " << totalDataSize << " and featureMapSize " << featureMapSize << "\n";
@@ -178,7 +105,13 @@ namespace Finn {
          * @param buf
          */
         DeviceBuffer(DeviceBuffer&& buf) noexcept
-            : name(std::move(buf.name)), shapePacked(std::move(buf.shapePacked)), mapSize(buf.mapSize), internalBo(std::move(buf.internalBo)), assocIPCore(std::move(buf.assocIPCore)), map(std::move(buf.map)), bufAdr(internalBo.address()) {}
+            : name(std::move(buf.name)),
+              shapePacked(std::move(buf.shapePacked)),
+              mapSize(buf.mapSize),
+              internalBuffer(std::move(buf.internalBuffer)),
+              assocKernel(std::move(buf.assocKernel)),
+              totalDataSize(buf.totalDataSize),
+              featureMapSize(buf.featureMapSize) {}
 
         /**
          * @brief Construct a new Device Buffer object (Deleted copy constructor)
@@ -274,12 +207,11 @@ namespace Finn {
         /**
          * @brief Wait for the kernel to complete execution
          *
-         * @param stopToken Token to request stopping the wait
          * @return true Success
          * @return false Failure
          */
-        virtual bool wait(std::stop_token stopToken = {}) {
-            busyWait(stopToken);
+        virtual bool wait() {
+            this->assocKernel.wait();
             return true;
         };
 
@@ -293,37 +225,15 @@ namespace Finn {
 
         /**
          * @brief Synchronizes the Buffer data to the data on the FPGA
-         *
-         * @param bytes
          */
-        virtual void sync(std::size_t bytes) = 0;
+        virtual void sync() = 0;
 
         /**
          * @brief Execute the kernel with specified repetitions
          *
          * @param repetitions Number of repetitions to execute (default: 1)
          */
-        void execute(const uint32_t repetitions = 1) {
-            // writes the buffer adress
-            constexpr uint32_t offset_buf = 0x10;
-            constexpr uint32_t offset_rep = 0x1C;
-
-            // If repetition number is the same as for the last call, then nothing has to be written before starting the Kernel
-            if (repetitions == oldRepetitions) {
-                assocIPCore.write_register(CSR_OFFSET, IP_START);
-                return;
-            }
-            oldRepetitions = repetitions;
-
-            assocIPCore.write_register(offset_buf, bufAdr);
-            assocIPCore.write_register(offset_buf + 4, bufAdr >> 32);
-
-            // writes the repetitions
-            assocIPCore.write_register(offset_rep, repetitions);
-
-            // Start inference
-            assocIPCore.write_register(CSR_OFFSET, IP_START);
-        }
+        void execute(const uint32_t repetitions = 1) { assocKernel.start(this->internalBuffer.getPhysAddr(), repetitions); }
     };
 
     /**
@@ -364,7 +274,7 @@ namespace Finn {
          * @param pAssociatedKernel XRT kernel
          * @param pShapePacked packed shape of input
          */
-        DeviceInputBuffer(const std::string& pCUName, xrt::device& device, xrt::uuid& pDevUUID, const shapePacked_t& pShapePacked, unsigned int batchSize = 1) : DeviceBuffer<T>(pCUName, device, pDevUUID, pShapePacked, batchSize){};
+        DeviceInputBuffer(const std::string& pCUName, vrt::Device& device, const shapePacked_t& pShapePacked, unsigned int batchSize = 1) : DeviceBuffer<T>(pCUName, device, pShapePacked, batchSize){};
 
         /**
          * @brief Store the given vector of data in the FPGA mem map
@@ -381,7 +291,7 @@ namespace Finn {
          * @brief Sync data from the map to the device.
          *
          */
-        void sync(std::size_t bytes) override { this->internalBo.sync(XCL_BO_SYNC_BO_TO_DEVICE, bytes, 0); }
+        void sync() override { this->internalBuffer.sync(vrt::SyncType::HOST_TO_DEVICE); }
 
          private:
         template<typename InputIt>
@@ -395,12 +305,12 @@ namespace Finn {
         Finn::vector<T> testGetMap() {
             Finn::vector<T> temp;
             for (size_t i = 0; i < FinnUtils::shapeToElements(this->shapePacked); i++) {
-                temp.push_back(this->map[i]);
+                temp.push_back(this->internalBuffer[i]);
             }
             return temp;
         }
-        void testSyncBackFromDevice() { this->internalBo.sync(XCL_BO_SYNC_BO_FROM_DEVICE); }
-        xrt::bo& testGetInternalBO() { return this->internalBo; }
+        void testSyncBackFromDevice() { this->internalBuffer.sync(vrt::SyncType::DEVICE_TO_HOST); }
+        vrt::Buffer<T>& testGetInternalBuffer() { return this->internalBuffer; }
 #endif
     };
 
@@ -433,7 +343,7 @@ namespace Finn {
          * @param pAssociatedKernel XRT kernel
          * @param pShapePacked packed shape of input
          */
-        DeviceOutputBuffer(const std::string& pCUName, xrt::device& device, xrt::uuid& pDevUUID, const shapePacked_t& pShapePacked, unsigned int batchSize = 1) : DeviceBuffer<T>(pCUName, device, pDevUUID, pShapePacked, batchSize){};
+        DeviceOutputBuffer(const std::string& pCUName, vrt::Device& device, const shapePacked_t& pShapePacked, unsigned int batchSize = 1) : DeviceBuffer<T>(pCUName, device, pShapePacked, batchSize){};
 
         /**
          * @brief Get the data from the buffer and return it as a vector
@@ -471,33 +381,26 @@ namespace Finn {
          *
          * @return * void
          */
-        void sync(std::size_t bytes) override { this->internalBo.sync(XCL_BO_SYNC_BO_FROM_DEVICE, bytes, 0); }
+        void sync() override { this->internalBuffer.sync(vrt::SyncType::DEVICE_TO_HOST); }
 
 #ifdef UNITTEST
          public:
-        std::vector<T> testGetMap() {
-            std::vector<T> temp;
-            for (size_t i = 0; i < FinnUtils::shapeToElements(this->shapePacked); ++i) {
-                temp.push_back(this->map[i]);
-            }
-            return temp;
-        }
-
         template<typename IteratorType>
         void testSetMap(IteratorType first, IteratorType last) {
             if (std::distance(first, last) > this->mapSize) {
                 Finn::logAndError<std::length_error>("Error setting test map. Sizes dont match");
             }
             for (unsigned int i = 0; i < std::distance(first, last); ++i) {
-                this->map[i] = first[i];
+                this->internalBuffer[i] = first[i];
             }
+            this->internalBuffer.sync(vrt::SyncType::HOST_TO_DEVICE);
         }
 
         void testSetMap(const std::vector<T>& data) { testSetMap(data.begin(), data.end()); }
 
         void testSetMap(const Finn::vector<T>& data) { testSetMap(data.begin(), data.end()); }
 
-        xrt::bo& testGetInternalBO() { return this->interalBo; }
+        vrt::Buffer<T>& testGetInternalBuffer() { return this->internalBuffer; }
 #endif
     };
 }  // namespace Finn

@@ -174,15 +174,15 @@ namespace Finn {
      */
     struct DeviceWrapper {
         /**
-         * @brief Path to xclbin
+         * @brief Path to vbin
          *
          */
-        std::filesystem::path xclbin;
+        std::filesystem::path vbin;
         /**
-         * @brief XRT device index assigned to this device
+         * @brief Bus:device:function identifier of this device
          *
          */
-        unsigned int xrtDeviceIndex = 0;
+        std::string bdf;
         /**
          * @brief List of idma descriptions for this device
          *
@@ -197,13 +197,13 @@ namespace Finn {
         /**
          * @brief Construct a new Device Wrapper object
          *
-         * @param pXclbin Path to xclbin
-         * @param pXrtDeviceIndex XRT device index assigned to this device
+         * @param pVbin Path to vbin
+         * @param pBdf Bus:device:function identifier of this device
          * @param pIdmas List of idma descriptions for this device
          * @param pOdmas List of odma descriptions for this device
          */
-        DeviceWrapper(const std::filesystem::path& pXclbin, const unsigned int pXrtDeviceIndex, const std::vector<std::shared_ptr<BufferDescriptor>>& pIdmas, const std::vector<std::shared_ptr<BufferDescriptor>>& pOdmas)
-            : xclbin(pXclbin), xrtDeviceIndex(pXrtDeviceIndex), idmas(pIdmas), odmas(pOdmas){};
+        DeviceWrapper(const std::filesystem::path& pVbin, const std::string& pBdf, const std::vector<std::shared_ptr<BufferDescriptor>>& pIdmas, const std::vector<std::shared_ptr<BufferDescriptor>>& pOdmas)
+            : vbin(pVbin), bdf(pBdf), idmas(pIdmas), odmas(pOdmas){};
 
         /**
          * @brief Construct a new Device Wrapper object
@@ -257,8 +257,8 @@ namespace Finn {
      */
     // NOLINTNEXTLINE
     void inline from_json(const json& j, DeviceWrapper& devWrap) {
-        j.at("xclbinPath").get_to(devWrap.xclbin);
-        j.at("xrtDeviceIndex").get_to(devWrap.xrtDeviceIndex);
+        j.at("bitfile").get_to(devWrap.vbin);
+        j.at("bdf").get_to(devWrap.bdf);
         auto vec = j.at("idmas").get<std::vector<std::shared_ptr<ExtendedBufferDescriptor>>>();
         devWrap.idmas = std::vector<std::shared_ptr<BufferDescriptor>>(vec.begin(), vec.end());
         vec = j.at("odmas").get<std::vector<std::shared_ptr<ExtendedBufferDescriptor>>>();

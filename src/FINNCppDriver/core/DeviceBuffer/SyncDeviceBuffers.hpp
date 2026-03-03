@@ -16,8 +16,6 @@
 #include <FINNCppDriver/core/DeviceBuffer/DeviceBuffer.hpp>
 #include <FINNCppDriver/utils/join.hpp>
 
-#include "ert.h"
-
 namespace Finn {
     template<typename T>
     class SyncDeviceInputBuffer : public DeviceInputBuffer<T> {
@@ -34,7 +32,7 @@ namespace Finn {
          * @param pShapePacked packed shape of input
          * @param batchSize batch size
          */
-        SyncDeviceInputBuffer(const std::string& pCUName, xrt::device& device, xrt::uuid& pDevUUID, const shapePacked_t& pShapePacked, unsigned int batchSize) : DeviceInputBuffer<T>(pCUName, device, pDevUUID, pShapePacked, batchSize) {
+        SyncDeviceInputBuffer(const std::string& pCUName, vrt::Device& device, const shapePacked_t& pShapePacked, unsigned int batchSize) : DeviceInputBuffer<T>(pCUName, device, pShapePacked, batchSize) {
             FINN_LOG(loglevel::info) << "[SyncDeviceInputBuffer] "
                                      << "Initializing DeviceBuffer " << this->name << " (SHAPE PACKED: " << FinnUtils::shapeToString(pShapePacked) << " inputs of the given shape, MAP SIZE: " << this->mapSize << ")\n";
             this->shapePacked[0] = batchSize;
@@ -90,7 +88,9 @@ namespace Finn {
          * @return false
          */
         bool store(std::span<const T> data) override {
-            std::copy(data.begin(), data.end(), this->map);
+            for (std::size_t i = 0; i < data.size(); i++) {
+                this->internalBuffer[i] = data[i];
+            }
             return true;
         }
 
@@ -102,7 +102,7 @@ namespace Finn {
          */
         bool run() override {
             FINN_LOG_DEBUG(loglevel::info) << this->loggerPrefix() << "DeviceBuffer (" << this->name << ") executing...";
-            this->sync(FinnUtils::shapeToElements(this->shapePacked));
+            this->sync();
             this->execute(this->shapePacked[0]);
             return true;
         }
@@ -125,7 +125,7 @@ namespace Finn {
          * @param pShapePacked packed shape of input
          * @param ringBufferSizeFactor size of ringbuffer in input elements (batch elements)
          */
-        SyncDeviceOutputBuffer(const std::string& pCUName, xrt::device& device, xrt::uuid& pDevUUID, const shapePacked_t& pShapePacked, unsigned int batchSize) : DeviceOutputBuffer<T>(pCUName, device, pDevUUID, pShapePacked, batchSize) {
+        SyncDeviceOutputBuffer(const std::string& pCUName, vrt::Device& device, const shapePacked_t& pShapePacked, unsigned int batchSize) : DeviceOutputBuffer<T>(pCUName, device, pShapePacked, batchSize) {
             this->shapePacked[0] = batchSize;
         };
 
@@ -167,7 +167,10 @@ namespace Finn {
          * @return Finn::vector<T>
          */
         Finn::vector<T> getData(const std::size_t& numItems) override {
-            Finn::vector<T> tmp(this->map, this->map + numItems);
+            Finn::vector<T> tmp(numItems);
+            for (std::size_t i = 0; i < numItems; i++) {
+                tmp[i] = this->internalBuffer[i];
+            }
             return tmp;
         }
 
@@ -190,7 +193,7 @@ namespace Finn {
          */
         bool read() override {
             FINN_LOG_DEBUG(loglevel::info) << this->loggerPrefix() << "Synching  " << this->totalDataSize << " bytes from the device";
-            this->sync(this->totalDataSize);
+            this->sync();
             return true;
         }
     };
