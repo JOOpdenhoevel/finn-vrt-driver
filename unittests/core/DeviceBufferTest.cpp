@@ -29,15 +29,14 @@ using namespace FinnUnittest;
 
 class DBTest : public ::testing::Test {
      protected:
-    vrt::Device device = vrt::Device("NULL", "../example_networks/single-layer-linear/finn_sim.vbin");
+    vrt::Device device = vrt::Device("bb:dd:f", "../example_networks/single-layer-linear/finn_sim.vbin");
 
     void SetUp() override { Logger::initLogger(true); }
-    void TearDown() override { device.cleanup(); }
+    void TearDown() override {}
 };
 
-
 TEST_F(DBTest, DBStoreTest) {
-    Finn::SyncDeviceInputBuffer<uint8_t> buffer("InputBuffer", device, FinnUnittest::myShapePacked, FinnUnittest::parts);
+    Finn::SyncDeviceInputBuffer<uint8_t> buffer("idma0", device, FinnUnittest::myShapePacked, FinnUnittest::parts);
     Finn::vector<uint8_t> data(buffer.getFeatureMapSize() * buffer.getBatchSize());
     FinnUtils::BufferFiller(0, 255).fillRandom(data.begin(), data.end());
     buffer.store({data.begin(), data.end()});
@@ -45,7 +44,7 @@ TEST_F(DBTest, DBStoreTest) {
 }
 
 TEST_F(DBTest, DBOutputTest) {
-    Finn::SyncDeviceOutputBuffer<uint8_t> buffer("OutputBuffer", device, FinnUnittest::myShapePacked, FinnUnittest::parts);
+    Finn::SyncDeviceOutputBuffer<uint8_t> buffer("odma0", device, FinnUnittest::myShapePacked, FinnUnittest::parts);
     Finn::vector<uint8_t> data(buffer.getTotalDataSize());
     FinnUtils::BufferFiller(0, 255).fillRandom(data.begin(), data.end());
     buffer.testSetMap(data);
@@ -55,19 +54,48 @@ TEST_F(DBTest, DBOutputTest) {
 }
 
 TEST_F(DBTest, SyncExecutionTest) {
-    Finn::SyncDeviceInputBuffer<uint8_t> input_buffer("idma0", device, shape_t({1, 20, 4}), 1);
+    Finn::SyncDeviceInputBuffer<uint8_t> input_buffer("idma0", device, shape_t({1, 10, 1}), 1);
     Finn::vector<uint8_t> input_data(input_buffer.getFeatureMapSize() * input_buffer.getBatchSize());
     FinnUtils::BufferFiller(0, 255).fillRandom(input_data.begin(), input_data.end());
     EXPECT_TRUE(input_buffer.store(std::span(input_data)));
     EXPECT_TRUE(input_buffer.run());
 
-    Finn::SyncDeviceOutputBuffer<uint8_t> output_buffer("odma0", device, shape_t({1, 20, 4}), 1);
+    Finn::SyncDeviceOutputBuffer<uint8_t> output_buffer("odma0", device, shape_t({1, 10, 1}), 1);
     EXPECT_TRUE(output_buffer.run());
     EXPECT_TRUE(output_buffer.wait());
     EXPECT_TRUE(output_buffer.read());
 
     Finn::vector<uint8_t> output_data = output_buffer.getData(input_buffer.getFeatureMapSize() * input_buffer.getBatchSize());
     EXPECT_EQ(input_data, output_data);
+}
+
+TEST_F(DBTest, RawVRTExecutionTest) {
+    vrt::Kernel idma0 = device.getKernel("idma0");
+    vrt::Buffer<uint8_t> input_buffer(device, 4096, vrt::MemoryRangeType::DDR);
+    for (uint8_t i = 0; i < 10; i++) {
+        input_buffer[i] = i;
+    }
+    input_buffer.sync(vrt::SyncType::HOST_TO_DEVICE);
+    // idma0.start(input_buffer.getPhysAddr(), static_cast<uint32_t>(1));
+    idma0.write(0x10, input_buffer.getPhysAddrHigh());
+    idma0.write(0x14, input_buffer.getPhysAddrLow());
+    idma0.write(0x1c, 1);
+    idma0.write(0x00, 1);
+
+    vrt::Kernel odma0 = device.getKernel("odma0");
+    vrt::Buffer<uint8_t> output_buffer(device, 4096, vrt::MemoryRangeType::DDR);
+    // odma0.start(output_buffer.getPhysAddr(), static_cast<uint32_t>(1));
+    odma0.write(0x10, output_buffer.getPhysAddrHigh());
+    odma0.write(0x14, output_buffer.getPhysAddrLow());
+    odma0.write(0x1c, 1);
+    odma0.write(0x00, 1);
+    odma0.wait();
+    output_buffer.sync(vrt::SyncType::DEVICE_TO_HOST);
+
+    for (uint8_t i = 0; i < 9; i++) {
+        EXPECT_EQ(output_buffer[i], i);
+    }
+    EXPECT_EQ(output_buffer[9], 0);
 }
 
 int main(int argc, char** argv) {

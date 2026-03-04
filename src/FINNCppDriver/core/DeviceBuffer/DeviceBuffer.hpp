@@ -233,7 +233,10 @@ namespace Finn {
          *
          * @param repetitions Number of repetitions to execute (default: 1)
          */
-        void execute(const uint32_t repetitions = 1) { assocKernel.start(this->internalBuffer.getPhysAddr(), repetitions); }
+        void execute(const uint32_t repetitions = 1) {
+            FINN_LOG(loglevel::info) << "Starting kernel \"" << assocKernel.getName() << "\" with arguments " << this->internalBuffer.getPhysAddr() << " and " << repetitions << std::endl;
+            assocKernel.start(this->internalBuffer.getPhysAddr(), repetitions);
+        }
     };
 
     /**
