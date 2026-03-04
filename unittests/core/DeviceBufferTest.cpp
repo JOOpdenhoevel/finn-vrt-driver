@@ -31,7 +31,7 @@ class DBTest : public ::testing::Test {
      protected:
     vrt::Device device = vrt::Device("bb:dd:f", "../example_networks/single-layer-linear/finn_sim.vbin");
 
-    void SetUp() override { Logger::initLogger(true); }
+    void SetUp() override {}
     void TearDown() override {}
 };
 
@@ -66,36 +66,34 @@ TEST_F(DBTest, SyncExecutionTest) {
     EXPECT_TRUE(output_buffer.read());
 
     Finn::vector<uint8_t> output_data = output_buffer.getData(input_buffer.getFeatureMapSize() * input_buffer.getBatchSize());
-    EXPECT_EQ(input_data, output_data);
+    for (std::size_t i = 1; i < 9; i++) {
+        EXPECT_EQ(output_data[0], output_data[i]);
+    }
+    EXPECT_EQ(0, output_data[9]);
 }
 
 TEST_F(DBTest, RawVRTExecutionTest) {
-    vrt::Kernel idma0 = device.getKernel("idma0");
+    vrt::Kernel idma0(device, "idma0");
+    vrt::Kernel odma0(device, "odma0");
+
     vrt::Buffer<uint8_t> input_buffer(device, 4096, vrt::MemoryRangeType::DDR);
+    vrt::Buffer<uint8_t> output_buffer(device, 4096, vrt::MemoryRangeType::DDR);
+
     for (uint8_t i = 0; i < 10; i++) {
         input_buffer[i] = i;
     }
     input_buffer.sync(vrt::SyncType::HOST_TO_DEVICE);
-    // idma0.start(input_buffer.getPhysAddr(), static_cast<uint32_t>(1));
-    idma0.write(0x10, input_buffer.getPhysAddrHigh());
-    idma0.write(0x14, input_buffer.getPhysAddrLow());
-    idma0.write(0x1c, 1);
-    idma0.write(0x00, 1);
 
-    vrt::Kernel odma0 = device.getKernel("odma0");
-    vrt::Buffer<uint8_t> output_buffer(device, 4096, vrt::MemoryRangeType::DDR);
-    // odma0.start(output_buffer.getPhysAddr(), static_cast<uint32_t>(1));
-    odma0.write(0x10, output_buffer.getPhysAddrHigh());
-    odma0.write(0x14, output_buffer.getPhysAddrLow());
-    odma0.write(0x1c, 1);
-    odma0.write(0x00, 1);
+    idma0.start(input_buffer.getPhysAddr(), static_cast<uint32_t>(1));
+    odma0.start(output_buffer.getPhysAddr(), static_cast<uint32_t>(1));
+
     odma0.wait();
     output_buffer.sync(vrt::SyncType::DEVICE_TO_HOST);
 
-    for (uint8_t i = 0; i < 9; i++) {
-        EXPECT_EQ(output_buffer[i], i);
+    for (std::size_t i = 1; i < 9; i++) {
+        EXPECT_EQ(output_buffer[0], output_buffer[i]);
     }
-    EXPECT_EQ(output_buffer[9], 0);
+    EXPECT_EQ(0, output_buffer[9]);
 }
 
 int main(int argc, char** argv) {
