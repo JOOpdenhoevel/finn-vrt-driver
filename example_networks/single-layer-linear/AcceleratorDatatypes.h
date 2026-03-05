@@ -6,7 +6,7 @@
 #include <FINNCppDriver/core/BaseDriver.hpp>
 #include <FINNCppDriver/utils/FinnDatatypes.hpp>
 
-using InputFinnType = Finn::DatatypeFloat<32>;
+using InputFinnType = Finn::DatatypeFloat;
 using OutputFinnType = Finn::DatatypeInt<5>;
 
 namespace Finn {

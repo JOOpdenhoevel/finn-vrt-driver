@@ -6,8 +6,8 @@
 #include <FINNCppDriver/core/BaseDriver.hpp>
 #include <FINNCppDriver/utils/FinnDatatypes.hpp>
 
-using InputFinnType = Finn::DatatypeFloat<32>;
-using OutputFinnType = Finn::DatatypeUint<8>;
+using InputFinnType = Finn::DatatypeFloat;
+using OutputFinnType = Finn::DatatypeUInt<8>;
 
 namespace Finn {
     template<bool SynchronousInference>

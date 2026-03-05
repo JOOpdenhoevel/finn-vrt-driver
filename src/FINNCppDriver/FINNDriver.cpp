@@ -240,8 +240,7 @@ constexpr size_t typeStringByteSizePos = 2;
  * @param outputFile Name of output file
  */
 void inferFloatingPoint(Finn::Driver<true>& baseDriver, xt::detail::npy_file& loadedNpyFile, const std::string& outputFile) {
-    size_t sizePos = typeStringByteSizePos;
-    int size = std::stoi(loadedNpyFile.m_typestring, &sizePos);
+    int size = std::stoi(loadedNpyFile.m_typestring.c_str() + typeStringByteSizePos);
     if (size == 4) {
         // float
         loadInferDump<float>(baseDriver, loadedNpyFile, outputFile);
@@ -262,8 +261,7 @@ void inferFloatingPoint(Finn::Driver<true>& baseDriver, xt::detail::npy_file& lo
  * @param outputFile
  */
 void inferSignedInteger(Finn::Driver<true>& baseDriver, xt::detail::npy_file& loadedNpyFile, const std::string& outputFile) {
-    size_t sizePos = typeStringByteSizePos;
-    int size = std::stoi(loadedNpyFile.m_typestring, &sizePos);
+    int size = std::stoi(loadedNpyFile.m_typestring.c_str() + typeStringByteSizePos);
     if (size == 1) {
         // int8_t
         loadInferDump<int8_t>(baseDriver, loadedNpyFile, outputFile);
@@ -290,8 +288,7 @@ void inferSignedInteger(Finn::Driver<true>& baseDriver, xt::detail::npy_file& lo
  * @param outputFile
  */
 void inferUnsignedInteger(Finn::Driver<true>& baseDriver, xt::detail::npy_file& loadedNpyFile, const std::string& outputFile) {
-    size_t sizePos = typeStringByteSizePos;
-    int size = std::stoi(loadedNpyFile.m_typestring, &sizePos);
+    int size = std::stoi(loadedNpyFile.m_typestring.c_str() + typeStringByteSizePos);
     if (size == 1) {
         // uint8_t
         loadInferDump<uint8_t>(baseDriver, loadedNpyFile, outputFile);
