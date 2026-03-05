@@ -10,7 +10,6 @@
  *
  */
 
-#include <FINNCppDriver/core/DeviceBuffer/AsyncDeviceBuffers.hpp>
 #include <FINNCppDriver/core/DeviceBuffer/SyncDeviceBuffers.hpp>
 #include <FINNCppDriver/utils/FinnDatatypes.hpp>
 #include <FINNCppDriver/utils/Logger.hpp>
