@@ -26,15 +26,23 @@
 
 namespace FinnUnittest {
 #ifndef FINN_CUSTOM_UNITTEST_CONFIG
-    const std::string configFilePath = "../src/FINNCppDriver/config/exampleConfig.json";
+    const std::string configFilePath = "../example_networks/single-layer-linear/acceleratorconfig.json";
+    const std::string vbinPath = "../example_networks/single-layer-linear/finn_sim.vbin";
 #else
     const std::string configFilePath = STRNGFY(FINN_CUSTOM_UNITTEST_CONFIG);
 #endif
 
     Finn::Config unittestConfig = Finn::createConfigFromPath(std::filesystem::path(configFilePath));
 
-    const std::string inputDmaName = "StreamingDataflowPartition_0:{idma0}";
-    const std::string outputDmaName = "StreamingDataflowPartition_2:{odma0}";
+    using InputFinnType = Finn::DatatypeFloat;
+    using OutputFinnType = Finn::DatatypeInt<5>;
+
+    template<bool SynchronousInference>
+    using Driver = Finn::BaseDriver<SynchronousInference, InputFinnType, OutputFinnType>;
+
+    const std::string bdf = "bb:dd:f";
+    const std::string inputDmaName = "idma0";
+    const std::string outputDmaName = "odma0";
 
     auto myShapeNormal = (*std::dynamic_pointer_cast<Finn::ExtendedBufferDescriptor>(unittestConfig.deviceWrappers[0].idmas[0])).normalShape;
     auto myShapeFolded = (*std::dynamic_pointer_cast<Finn::ExtendedBufferDescriptor>(unittestConfig.deviceWrappers[0].idmas[0])).foldedShape;

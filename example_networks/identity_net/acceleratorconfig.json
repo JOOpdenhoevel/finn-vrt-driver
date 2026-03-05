@@ -1,43 +1,45 @@
-{
-  "bdf": "Change me!",
-  "bitfile": "/scratch/users/jopdenho/finn_temp_files/slash_link_proj_k1sefeut/linker/results/finn/sim/finn_sim.vbin",
-  "name": "MainDevice",
-  "idmas": [
-    {
-      "kernelName": "idma0",
-      "normalShape": [
-        1,
-        20
-      ],
-      "foldedShape": [
-        1,
-        20,
-        1
-      ],
-      "packedShape": [
-        1,
-        20,
-        4
-      ]
-    }
-  ],
-  "odmas": [
-    {
-      "kernelName": "odma0",
-      "normalShape": [
-        1,
-        20
-      ],
-      "foldedShape": [
-        1,
-        20,
-        1
-      ],
-      "packedShape": [
-        1,
-        20,
-        1
-      ]
-    }
-  ]
-}
+[
+  {
+    "bdf": "bb:dd:f",
+    "bitfile": "../example_networks/identity_net/finn_sim.vbin",
+    "name": "MainDevice",
+    "idmas": [
+      {
+        "kernelName": "idma0",
+        "normalShape": [
+          1,
+          20
+        ],
+        "foldedShape": [
+          1,
+          20,
+          1
+        ],
+        "packedShape": [
+          1,
+          20,
+          4
+        ]
+      }
+    ],
+    "odmas": [
+      {
+        "kernelName": "odma0",
+        "normalShape": [
+          1,
+          20
+        ],
+        "foldedShape": [
+          1,
+          20,
+          1
+        ],
+        "packedShape": [
+          1,
+          20,
+          1
+        ]
+      }
+    ]
+  }
+]

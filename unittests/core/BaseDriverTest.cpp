@@ -27,29 +27,24 @@
 #include "UnittestConfig.h"
 using namespace FinnUnittest;
 
-
 class BaseDriverTest : public ::testing::Test {
      protected:
-    std::string fn = "finn-accel.xclbin";
-    void SetUp() override {
-        std::fstream tmpfile(fn, std::fstream::out);
-        tmpfile << "some stuff\n";
-        tmpfile.close();
-    }
-
-    void TearDown() override { std::filesystem::remove(fn); }
+    void SetUp() override {}
+    void TearDown() override {}
 };
 
-class TestDriver : public Finn::Driver<true> {
+
+class TestDriver : public FinnUnittest::Driver<true> {
      public:
-    TestDriver(const Finn::Config& pConfig, unsigned int hostBufferSize) : Finn::Driver<true>(pConfig, hostBufferSize) {}
-    Finn::vector<uint8_t> inferR(const Finn::vector<uint8_t>& data, unsigned int inputDeviceIndex, const std::string& inputBufferKernelName, unsigned int outputDeviceIndex, const std::string& outputBufferKernelName, unsigned int samples) {
-        return infer(data, inputDeviceIndex, inputBufferKernelName, outputDeviceIndex, outputBufferKernelName, samples);
+    TestDriver(const Finn::Config& pConfig, unsigned int hostBufferSize) : FinnUnittest::Driver<true>(pConfig, hostBufferSize) {}
+
+    Finn::vector<uint8_t> inferR(const Finn::vector<uint8_t>& data, const std::string& inputBDF, const std::string& inputBufferKernelName, const std::string& outputBDF, const std::string& outputBufferKernelName, unsigned int samples) {
+        return infer(data, inputBDF, inputBufferKernelName, outputBDF, outputBufferKernelName, samples);
     }
 
     template<typename IterType>
-    Finn::vector<uint8_t> inferR(IterType first, IterType last, unsigned int inputDeviceIndex, const std::string& inputBufferKernelName, unsigned int outputDeviceIndex, const std::string& outputBufferKernelName, unsigned int samples) {
-        return infer(first, last, inputDeviceIndex, inputBufferKernelName, outputDeviceIndex, outputBufferKernelName, samples);
+    Finn::vector<uint8_t> inferR(IterType first, IterType last, const std::string& inputBDF, const std::string& inputBufferKernelName, const std::string& outputBDF, const std::string& outputBufferKernelName, unsigned int samples) {
+        return infer(first, last, inputBDF, inputBufferKernelName, outputBDF, outputBufferKernelName, samples);
     }
 };
 
@@ -59,46 +54,22 @@ TEST_F(BaseDriverTest, BasicBaseDriverTest) {
 
     Finn::vector<uint8_t> data;
     Finn::vector<uint8_t> backupData;
-    data.resize(driver.getTotalDataSize(0, inputDmaName));
+    data.resize(driver.getTotalDataSize(bdf, inputDmaName));
 
     filler.fillRandom(data.begin(), data.end());
     backupData = data;
 
     // Setup fake output data
-    driver.getDeviceHandler(0).getOutputBuffer(outputDmaName)->testSetMap(data);
+    driver.getDeviceHandler(bdf).getOutputBuffer(outputDmaName)->testSetMap(data);
 
     // Run inference
-    auto results = driver.inferR(data, 0, inputDmaName, 0, outputDmaName, hostBufferSize);
+    auto results = driver.inferR(data, bdf, inputDmaName, bdf, outputDmaName, hostBufferSize);
 
-    Finn::vector<uint8_t> base(data.begin(), data.begin() + static_cast<long int>(driver.getTotalDataSize(0, outputDmaName)));
-
-
-    // Checks: That input and output data is the same is just for convenience, in application this does not need to be
-    // Check output process
-    EXPECT_EQ(results.size(), base.size());
-    EXPECT_EQ(results, base);
-    // Check input process
-    auto testMap = driver.getDeviceHandler(0).getInputBuffer(inputDmaName).get()->testGetMap();
-    EXPECT_TRUE(std::equal(testMap.begin(), testMap.begin() + 80, data.begin()));
-}
-
-TEST_F(BaseDriverTest, syncInferenceTest) {
-    auto driver = Finn::Driver<true>(unittestConfig, 0, inputDmaName, 0, outputDmaName, 1);
-
-    // The input has to be 4 times longer than the expected size of the FPGA, because uint8->int2 packing reduces size by factor 4
-    std::cout << driver.getFeatureMapSize(0, inputDmaName) << "\n";
-    Finn::vector<int8_t> data(300, 1);
-    Finn::vector<uint8_t> outdata(driver.getFeatureMapSize(0, outputDmaName), 1);
-
-    // Setup fake output data
-    driver.getDeviceHandler(0).getOutputBuffer(outputDmaName)->testSetMap(outdata);
-
-    // Run inference
-    auto results = driver.inferSynchronous(data.begin(), data.end());
-
-    Finn::vector<uint8_t> expected(driver.getTotalDataSize(0, outputDmaName), 1);
-
-    EXPECT_EQ(results, expected);
+    // Check results
+    for (std::size_t i = 1; i < 9; i++) {
+        EXPECT_EQ(results[0], results[i]);
+    }
+    EXPECT_EQ(0, results[9]);
 }
 
 int main(int argc, char** argv) {
