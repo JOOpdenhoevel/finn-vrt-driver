@@ -43,7 +43,10 @@ namespace Finn {
              *
              * @param expectedMaxQueueSize Expected maximum size of the queue
              */
-            AsyncBufferWrapper(std::size_t expectedMaxQueueSize) : queue(expectedMaxQueueSize * featureMapCount) { FINN_LOG(loglevel::info) << "[AsyncDeviceBuffer] Max buffer size:" << queue.size() << "\n"; }
+            AsyncBufferWrapper(std::size_t expectedMaxQueueSize) : queue(expectedMaxQueueSize * featureMapCount) {
+                throw std::runtime_error("Asynchronous inference is not supported by VRT yet");
+                FINN_LOG(loglevel::info) << "[AsyncDeviceBuffer] Max buffer size:" << queue.size() << "\n";
+            }
 
             /**
              * @brief Destroy the Async Buffer Wrapper object
