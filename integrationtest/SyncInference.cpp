@@ -19,46 +19,57 @@
 
 namespace Finn {
     template<bool SynchronousInference>
-    using Driver = BaseDriver<SynchronousInference, DatatypeInt<8>, DatatypeUInt<16>>;
+    using Driver = BaseDriver<SynchronousInference, DatatypeFloat, DatatypeUInt<8>>;
 }
 
 TEST(SyncInference, syncInferenceTest) {
-    std::string exampleNetworkConfig = "jetConfig.json";
+    std::string exampleNetworkConfig = "../example_networks/identity_net/acceleratorconfig.json";
     Finn::Config conf = Finn::createConfigFromPath(exampleNetworkConfig);
+    std::string bdf = "bb:dd:f";
+    std::string idma_name = conf.deviceWrappers[0].idmas[0]->kernelName;
+    std::string odma_name = conf.deviceWrappers[0].odmas[0]->kernelName;
 
-    auto driver = Finn::Driver<true>(conf, 0, conf.deviceWrappers[0].idmas[0]->kernelName, 0, conf.deviceWrappers[0].odmas[0]->kernelName, 1);
+    auto driver = Finn::Driver<true>(conf, bdf, idma_name, bdf, odma_name, 1);
+    std::size_t n_elements = 20;
 
-    Finn::vector<int8_t> data(driver.getFeatureMapSize(0, conf.deviceWrappers[0].idmas[0]->kernelName), 1);
-
-    std::iota(data.begin(), data.end(), -127);
+    Finn::vector<float> data(n_elements);
+    auto filler = FinnUtils::BufferFiller(0, 32);
+    filler.fillRandom(data.begin(), data.end());
 
     // Run inference
     auto results = driver.inferSynchronous(data.begin(), data.end());
 
-    Finn::vector<uint16_t> expectedResults = {98, 50, 65476, 65493, 27};
+    Finn::vector<uint8_t> expectedResults(n_elements);
+    for (std::size_t i = 0; i < n_elements; i++) {
+        expectedResults[i] = static_cast<uint8_t>(std::round(data[i] * 2));
+    }
 
     EXPECT_EQ(results, expectedResults);
 }
 
 TEST(SyncInference, syncBatchInferenceTest) {
-    std::string exampleNetworkConfig = "jetConfig.json";
+    std::string exampleNetworkConfig = "../example_networks/identity_net/acceleratorconfig.json";
     Finn::Config conf = Finn::createConfigFromPath(exampleNetworkConfig);
-    std::size_t batchLength = 10;
+    std::string bdf = "bb:dd:f";
+    std::string idma_name = conf.deviceWrappers[0].idmas[0]->kernelName;
+    std::string odma_name = conf.deviceWrappers[0].odmas[0]->kernelName;
+    std::size_t n_batches = 10;
+    std::size_t n_elements_per_batch = 20;
+    std::size_t n_elements = n_elements_per_batch * n_batches;
 
-    auto driver = Finn::Driver<true>(conf, 0, conf.deviceWrappers[0].idmas[0]->kernelName, 0, conf.deviceWrappers[0].odmas[0]->kernelName, static_cast<uint>(batchLength));
+    auto driver = Finn::Driver<true>(conf, bdf, idma_name, bdf, odma_name, static_cast<uint>(n_batches));
 
-    Finn::vector<int8_t> data(driver.getFeatureMapSize(0, conf.deviceWrappers[0].idmas[0]->kernelName) * batchLength, 1);
-
-    for (std::size_t i = 0; i < batchLength; ++i) {
-        std::iota(data.begin() + static_cast<decltype(data)::difference_type>(i * driver.getFeatureMapSize(0, conf.deviceWrappers[0].idmas[0]->kernelName)),
-                  data.begin() + static_cast<decltype(data)::difference_type>((i + 1) * driver.getFeatureMapSize(0, conf.deviceWrappers[0].idmas[0]->kernelName)), -127 + static_cast<int>(i));
-    }
+    Finn::vector<float> data(n_elements);
+    auto filler = FinnUtils::BufferFiller(0, 32);
+    filler.fillRandom(data.begin(), data.end());
 
     // Run inference
     auto results = driver.inferSynchronous(data.begin(), data.end());
 
-    Finn::vector<uint16_t> expectedResults = {98, 50, 65476, 65493, 27, 98, 50, 65476, 65493, 27, 98, 50, 65476, 65493, 27, 98, 50, 65476, 65493, 27, 98, 50, 65476, 65493, 27,
-                                              95, 61, 65483, 65491, 12, 98, 50, 65476, 65493, 27, 92, 53, 65483, 65498, 15, 92, 53, 65483, 65498, 15, 86, 53, 65489, 65498, 9};
+    Finn::vector<uint8_t> expectedResults(n_elements);
+    for (std::size_t i = 0; i < n_elements; i++) {
+        expectedResults[i] = static_cast<uint8_t>(std::round(data[i] * 2));
+    }
 
     EXPECT_EQ(results, expectedResults);
 }
