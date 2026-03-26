@@ -30,7 +30,7 @@
 #include <vector>         // for vector
 
 // VRT include
-#include "api/device.hpp"
+#include <vrt/device.hpp>
 
 namespace Finn {
     class UncheckedStore;

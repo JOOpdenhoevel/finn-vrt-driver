@@ -10,8 +10,7 @@ cfg = build.DataflowBuildConfig(
         build_cfg.DataflowOutputType.BITFILE,
         build_cfg.DataflowOutputType.CPP_DRIVER,
     ],
-    shell_flow_type=build_cfg.ShellFlowType.SLASH_ALVEO,
-    enable_hw_sim=True
+    shell_flow_type=build_cfg.ShellFlowType.SLASH_ALVEO
 )
 model_file = "testmodel.onnx"
 build.build_dataflow_cfg(model_file, cfg)

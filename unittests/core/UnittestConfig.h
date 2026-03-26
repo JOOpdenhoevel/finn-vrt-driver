@@ -14,6 +14,7 @@
 #include <FINNCppDriver/utils/FinnUtils.h>
 #include <FINNCppDriver/utils/Types.h>
 
+#include <FINNCppDriver/core/BaseDriver.hpp>
 #include <FINNCppDriver/utils/FinnDatatypes.hpp>
 #include <FINNCppDriver/utils/Logger.hpp>
 #include <array>
@@ -27,7 +28,7 @@
 namespace FinnUnittest {
 #ifndef FINN_CUSTOM_UNITTEST_CONFIG
     const std::string configFilePath = "../example_networks/single-layer-linear/acceleratorconfig.json";
-    const std::string vbinPath = "../example_networks/single-layer-linear/finn_sim.vbin";
+    const std::string vbinPath = "../example_networks/single-layer-linear/finn_hw.vbin";
 #else
     const std::string configFilePath = STRNGFY(FINN_CUSTOM_UNITTEST_CONFIG);
 #endif

@@ -16,6 +16,7 @@ function(add_benchmark benchmark_name)
     finnc_options
     finnc_core
     vrt
+    jsoncpp
     benchmark::benchmark
     OpenMP::OpenMP_CXX
   )

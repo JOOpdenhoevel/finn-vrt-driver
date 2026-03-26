@@ -1,7 +1,7 @@
 [
   {
-    "bdf": "bb:dd:f",
-    "bitfile": "../example_networks/single-layer-linear/finn_sim.vbin",
+    "bdf": "0000:61:00",
+    "bitfile": "../example_networks/single-layer-linear/finn_hw.vbin",
     "name": "MainDevice",
     "idmas": [
       {

@@ -75,7 +75,8 @@ set(THREADS_PREFER_PTHREAD_FLAG ON)
 find_package(Threads REQUIRED)
 
 # VRT
-find_package(VRT REQUIRED)
+find_package(vrt REQUIRED CONFIG)
+find_package(SlashTools REQUIRED)
 
 #OpenMP
 find_package(OpenMP REQUIRED)

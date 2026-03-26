@@ -13,5 +13,5 @@ function(add_integrationtest integrationtest_name)
   #target_compile_definitions(${integrationtest} PRIVATE UNITTEST=1)
 
   target_include_directories(${integrationtest} SYSTEM PRIVATE ${FINN_SRC_DIR})
-  target_link_libraries(${integrationtest} PRIVATE gtest finnc_core finnc_options Threads::Threads vrt uuid nlohmann_json::nlohmann_json OpenMP::OpenMP_CXX)
+  target_link_libraries(${integrationtest} PRIVATE gtest finnc_core finnc_options Threads::Threads vrt jsoncpp uuid nlohmann_json::nlohmann_json OpenMP::OpenMP_CXX)
 endfunction()

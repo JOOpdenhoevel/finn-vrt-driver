@@ -1,7 +1,7 @@
 [
   {
-    "bdf": "bb:dd:f",
-    "bitfile": "../example_networks/identity_net/finn_sim.vbin",
+    "bdf": "0061:00:0",
+    "bitfile": "../example_networks/identity_net/finn_hw.vbin",
     "name": "MainDevice",
     "idmas": [
       {

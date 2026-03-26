@@ -20,7 +20,7 @@
 #include "gtest/gtest.h"
 
 // VRT includes
-#include "api/device.hpp"
+#include <vrt/device.hpp>
 
 // Provides config and shapes for testing
 #include "UnittestConfig.h"
@@ -28,7 +28,7 @@ using namespace FinnUnittest;
 
 class DBTest : public ::testing::Test {
      protected:
-    vrt::Device device = vrt::Device("bb:dd:f", "../example_networks/single-layer-linear/finn_sim.vbin");
+    vrt::Device device = vrt::Device("0000:61:00", "../example_networks/single-layer-linear/finn_hw.vbin");
 
     void SetUp() override {}
     void TearDown() override {}
@@ -77,22 +77,30 @@ TEST_F(DBTest, RawVRTExecutionTest) {
 
     vrt::Buffer<uint8_t> input_buffer(device, 4096, vrt::MemoryRangeType::DDR);
     vrt::Buffer<uint8_t> output_buffer(device, 4096, vrt::MemoryRangeType::DDR);
+    std::cout << "Allocated buffers" << std::endl;
 
     for (uint8_t i = 0; i < 10; i++) {
         input_buffer[i] = i;
     }
     input_buffer.sync(vrt::SyncType::HOST_TO_DEVICE);
+    std::cout << "Synched data to the device" << std::endl;
 
     idma0.start(input_buffer.getPhysAddr(), static_cast<uint32_t>(1));
     odma0.start(output_buffer.getPhysAddr(), static_cast<uint32_t>(1));
+    std::cout << "Started the kernels" << std::endl;
 
+    idma0.wait();
+    std::cout << "IDMA done" << std::endl;
     odma0.wait();
+    std::cout << "ODMA done" << std::endl;
     output_buffer.sync(vrt::SyncType::DEVICE_TO_HOST);
+    std::cout << "Results synched from the device" << std::endl;
 
     for (std::size_t i = 1; i < 9; i++) {
         EXPECT_EQ(output_buffer[0], output_buffer[i]);
     }
     EXPECT_EQ(0, output_buffer[9]);
+    std::cout << "Outputs verified, done!" << std::endl;
 }
 
 int main(int argc, char** argv) {

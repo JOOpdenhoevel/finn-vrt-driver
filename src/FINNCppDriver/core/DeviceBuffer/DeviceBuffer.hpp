@@ -24,8 +24,8 @@
 #include <thread>
 
 // VRT includes
-#include "api/buffer.hpp"
-#include "api/kernel.hpp"
+#include <vrt/buffer.hpp>
+#include <vrt/kernel.hpp>
 
 namespace Finn {
     /**

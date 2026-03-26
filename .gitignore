@@ -7,3 +7,6 @@ CMakeCache.txt
 Makefile
 cmake_install.cmake
 .vscode
+
+# Hardware binaries (too big and not allowed to be published)
+finn_hw.vbin
