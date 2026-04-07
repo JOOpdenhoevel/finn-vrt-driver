@@ -15,8 +15,6 @@ function(add_unittest test_name)
     gtest
     finnc_options
     finnc_core_test
-    vrt
-    jsoncpp
     OpenMP::OpenMP_CXX
   )
 
