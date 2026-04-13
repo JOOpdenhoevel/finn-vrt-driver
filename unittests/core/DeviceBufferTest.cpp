@@ -28,7 +28,7 @@ using namespace FinnUnittest;
 
 class DBTest : public ::testing::Test {
      protected:
-    vrt::Device device = vrt::Device("0000:21:00", "../example_networks/identity_net/finn_hw.vbin");
+    vrt::Device device = vrt::Device("0000:21:00", "../example_networks/identity_net/build/bitfile/finn-accel.vbin");
 
     void SetUp() override {}
     void TearDown() override {}
@@ -75,16 +75,12 @@ TEST_F(DBTest, RawVRTExecutionTest) {
     vrt::Kernel idma0(device, "idma0");
     vrt::Kernel odma0(device, "odma0");
 
-    vrt::Buffer<uint8_t> input_buffer(device, 4096, idma0.portMemoryConfig("m_axi_gmem0"));
-    vrt::Buffer<uint8_t> output_buffer(device, 4096, odma0.portMemoryConfig("m_axi_gmem0"));
+    vrt::Buffer<float> input_buffer(device, 1024, idma0.portMemoryConfig("m_axi_gmem0"));
+    vrt::Buffer<float> output_buffer(device, 1024, odma0.portMemoryConfig("m_axi_gmem0"));
     std::cout << "Allocated buffers" << std::endl;
 
     for (std::size_t i = 0; i < 20; i++) {
-        float input_value = static_cast<float>(i);
-        uint8_t* input_ptr = reinterpret_cast<uint8_t*>(&input_value);
-        for (std::size_t j = 0; j < sizeof(float); j++) {
-            input_buffer[i * sizeof(float) + j] = input_ptr[j];
-        }
+        input_buffer[i] = static_cast<float>(i);
     }
 
     input_buffer.sync(vrt::SyncType::HOST_TO_DEVICE);
@@ -102,8 +98,8 @@ TEST_F(DBTest, RawVRTExecutionTest) {
     output_buffer.sync(vrt::SyncType::DEVICE_TO_HOST);
     std::cout << "Results synched from the device" << std::endl;
 
-    for (std::size_t i = 1; i < 20; i++) {
-        EXPECT_EQ(output_buffer[0], i * 2);
+    for (std::size_t i = 0; i < 20; i++) {
+        EXPECT_EQ(output_buffer[i], static_cast<float>(i) * 0.00784313772f);
     }
     std::cout << "Outputs verified, done!" << std::endl;
 }
