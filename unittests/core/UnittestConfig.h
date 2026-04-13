@@ -27,8 +27,8 @@
 
 namespace FinnUnittest {
 #ifndef FINN_CUSTOM_UNITTEST_CONFIG
-    const std::string configFilePath = "../example_networks/single-layer-linear/acceleratorconfig.json";
-    const std::string vbinPath = "../example_networks/single-layer-linear/finn_hw.vbin";
+    const std::string configFilePath = "../example_networks/identity_net/build/driver/acceleratorconfig.json";
+    const std::string vbinPath = "../example_networks/identity_net/build/bitfile/finn-accel.vbin";
 #else
     const std::string configFilePath = STRNGFY(FINN_CUSTOM_UNITTEST_CONFIG);
 #endif
@@ -41,7 +41,7 @@ namespace FinnUnittest {
     template<bool SynchronousInference>
     using Driver = Finn::BaseDriver<SynchronousInference, InputFinnType, OutputFinnType>;
 
-    const std::string bdf = "bb:dd:f";
+    const std::string bdf = "0000:21:00";
     const std::string inputDmaName = "idma0";
     const std::string outputDmaName = "odma0";
 

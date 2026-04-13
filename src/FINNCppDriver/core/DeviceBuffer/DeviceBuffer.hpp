@@ -52,15 +52,15 @@ namespace Finn {
          */
         size_t mapSize;
         /**
-         * @brief VRT buffer object; This is used to interact with FPGA memory
-         *
-         */
-        vrt::Buffer<T> internalBuffer;
-        /**
          * @brief VRT kernel associated with this Buffer
          *
          */
         vrt::Kernel assocKernel;
+        /**
+         * @brief VRT buffer object; This is used to interact with FPGA memory
+         *
+         */
+        vrt::Buffer<T> internalBuffer;
 
         /**
          * @brief Total size of data in elements
@@ -87,8 +87,8 @@ namespace Finn {
             : name(pCUName),
               shapePacked(pShapePacked),
               mapSize(FinnUtils::getActualBufferSize(FinnUtils::shapeToElements(pShapePacked) * batchSize)),
-              internalBuffer(device, mapSize, vrt::MemoryRangeType::DDR),
-              assocKernel(device, pCUName) {
+              assocKernel(device, pCUName),
+              internalBuffer(device, mapSize, assocKernel.portMemoryConfig("m_axi_gmem0")) {
             shapePacked[0] = batchSize;
             FINN_LOG(loglevel::info) << "New Device Buffer of size " << mapSize * sizeof(T) << "bytes with group id " << 0 << "\n";
             FINN_LOG(loglevel::info) << "Initializing DeviceBuffer " << name << " (SHAPE PACKED: " << FinnUtils::shapeToString(pShapePacked) << " inputs of the given shape, MAP SIZE: " << mapSize << ")\n";
@@ -108,8 +108,8 @@ namespace Finn {
             : name(std::move(buf.name)),
               shapePacked(std::move(buf.shapePacked)),
               mapSize(buf.mapSize),
-              internalBuffer(std::move(buf.internalBuffer)),
               assocKernel(std::move(buf.assocKernel)),
+              internalBuffer(std::move(buf.internalBuffer)),
               totalDataSize(buf.totalDataSize),
               featureMapSize(buf.featureMapSize) {}
 
