@@ -49,6 +49,8 @@ class TestDriver : public FinnUnittest::Driver<true> {
 };
 
 TEST_F(BaseDriverTest, BasicBaseDriverTest) {
+    ASSERT_STRNE(FinnUnittest::bdf.c_str(), "Change me!") << "Please set the BDF in '" << configFilePath << "' to the desired device before running the tests!";
+
     auto driver = TestDriver(unittestConfig, hostBufferSize);
 
     Finn::vector<uint8_t> data;

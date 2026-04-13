@@ -28,14 +28,17 @@ using namespace FinnUnittest;
 
 class DBTest : public ::testing::Test {
      protected:
-    vrt::Device device = vrt::Device(FinnUnittest::bdf, FinnUnittest::vbinPath);
+    std::optional<vrt::Device> device;
 
-    void SetUp() override {}
+    void SetUp() override {
+        ASSERT_STRNE(FinnUnittest::bdf.c_str(), "Change me!") << "Please set the BDF in '" << configFilePath << "' to the desired device before running the tests!";
+        this->device = vrt::Device(FinnUnittest::bdf, FinnUnittest::vbinPath);
+    }
     void TearDown() override {}
 };
 
 TEST_F(DBTest, DBStoreTest) {
-    Finn::SyncDeviceInputBuffer<uint8_t> buffer("idma0", device, FinnUnittest::myShapePacked, FinnUnittest::parts);
+    Finn::SyncDeviceInputBuffer<uint8_t> buffer("idma0", *device, FinnUnittest::myShapePacked, FinnUnittest::parts);
     Finn::vector<uint8_t> data(buffer.getFeatureMapSize() * buffer.getBatchSize());
     FinnUtils::BufferFiller(0, 255).fillRandom(data.begin(), data.end());
     buffer.store({data.begin(), data.end()});
@@ -43,7 +46,7 @@ TEST_F(DBTest, DBStoreTest) {
 }
 
 TEST_F(DBTest, DBOutputTest) {
-    Finn::SyncDeviceOutputBuffer<uint8_t> buffer("odma0", device, FinnUnittest::myShapePacked, FinnUnittest::parts);
+    Finn::SyncDeviceOutputBuffer<uint8_t> buffer("odma0", *device, FinnUnittest::myShapePacked, FinnUnittest::parts);
     Finn::vector<uint8_t> data(buffer.getTotalDataSize());
     FinnUtils::BufferFiller(0, 255).fillRandom(data.begin(), data.end());
     buffer.testSetMap(data);
@@ -53,7 +56,7 @@ TEST_F(DBTest, DBOutputTest) {
 }
 
 TEST_F(DBTest, SyncExecutionTest) {
-    Finn::SyncDeviceInputBuffer<uint8_t> input_buffer("idma0", device, FinnUnittest::myShapePacked, FinnUnittest::parts);
+    Finn::SyncDeviceInputBuffer<uint8_t> input_buffer("idma0", *device, FinnUnittest::myShapePacked, FinnUnittest::parts);
     Finn::vector<uint8_t> input_data(input_buffer.getFeatureMapSize() * input_buffer.getBatchSize());
     for (std::size_t i = 0; i < 20 * FinnUnittest::parts; i++) {
         reinterpret_cast<float*>(input_data.data())[i] = static_cast<float>(i);
@@ -61,7 +64,7 @@ TEST_F(DBTest, SyncExecutionTest) {
     EXPECT_TRUE(input_buffer.store(std::span(input_data)));
     EXPECT_TRUE(input_buffer.run());
 
-    Finn::SyncDeviceOutputBuffer<uint8_t> output_buffer("odma0", device, FinnUnittest::myShapePacked, FinnUnittest::parts);
+    Finn::SyncDeviceOutputBuffer<uint8_t> output_buffer("odma0", *device, FinnUnittest::myShapePacked, FinnUnittest::parts);
     EXPECT_TRUE(output_buffer.run());
     EXPECT_TRUE(output_buffer.wait());
     EXPECT_TRUE(output_buffer.read());
@@ -74,11 +77,11 @@ TEST_F(DBTest, SyncExecutionTest) {
 }
 
 TEST_F(DBTest, RawVRTExecutionTest) {
-    vrt::Kernel idma0(device, "idma0");
-    vrt::Kernel odma0(device, "odma0");
+    vrt::Kernel idma0(*device, "idma0");
+    vrt::Kernel odma0(*device, "odma0");
 
-    vrt::Buffer<float> input_buffer(device, 1024, idma0.portMemoryConfig("m_axi_gmem0"));
-    vrt::Buffer<float> output_buffer(device, 1024, odma0.portMemoryConfig("m_axi_gmem0"));
+    vrt::Buffer<float> input_buffer(*device, 1024, idma0.portMemoryConfig("m_axi_gmem0"));
+    vrt::Buffer<float> output_buffer(*device, 1024, odma0.portMemoryConfig("m_axi_gmem0"));
 
     for (std::size_t i = 0; i < 20 * FinnUnittest::parts; i++) {
         input_buffer[i] = static_cast<float>(i);

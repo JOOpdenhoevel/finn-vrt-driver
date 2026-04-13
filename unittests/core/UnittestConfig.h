@@ -28,7 +28,6 @@
 namespace FinnUnittest {
 #ifndef FINN_CUSTOM_UNITTEST_CONFIG
     const std::string configFilePath = "../example_networks/identity_net/build/driver/acceleratorconfig.json";
-    const std::string vbinPath = "../example_networks/identity_net/build/bitfile/finn-accel.vbin";
 #else
     const std::string configFilePath = STRNGFY(FINN_CUSTOM_UNITTEST_CONFIG);
 #endif
@@ -36,18 +35,20 @@ namespace FinnUnittest {
     Finn::Config unittestConfig = Finn::createConfigFromPath(std::filesystem::path(configFilePath));
 
     using InputFinnType = Finn::DatatypeFloat;
-    using OutputFinnType = Finn::DatatypeInt<5>;
+    using OutputFinnType = Finn::DatatypeFloat;
 
     template<bool SynchronousInference>
     using Driver = Finn::BaseDriver<SynchronousInference, InputFinnType, OutputFinnType>;
 
-    const std::string bdf = "0000:21:00";
+    Finn::DeviceWrapper device_wrapper = unittestConfig.deviceWrappers[0];
+    const std::string vbinPath = device_wrapper.vbin.string();
+    const std::string bdf = device_wrapper.bdf;
     const std::string inputDmaName = "idma0";
     const std::string outputDmaName = "odma0";
 
-    auto myShapeNormal = (*std::dynamic_pointer_cast<Finn::ExtendedBufferDescriptor>(unittestConfig.deviceWrappers[0].idmas[0])).normalShape;
-    auto myShapeFolded = (*std::dynamic_pointer_cast<Finn::ExtendedBufferDescriptor>(unittestConfig.deviceWrappers[0].idmas[0])).foldedShape;
-    auto myShapePacked = (*std::dynamic_pointer_cast<Finn::ExtendedBufferDescriptor>(unittestConfig.deviceWrappers[0].idmas[0])).packedShape;
+    auto myShapeNormal = (*std::dynamic_pointer_cast<Finn::ExtendedBufferDescriptor>(device_wrapper.idmas[0])).normalShape;
+    auto myShapeFolded = (*std::dynamic_pointer_cast<Finn::ExtendedBufferDescriptor>(device_wrapper.idmas[0])).foldedShape;
+    auto myShapePacked = (*std::dynamic_pointer_cast<Finn::ExtendedBufferDescriptor>(device_wrapper.idmas[0])).packedShape;
 
     const unsigned int hostBufferSize = 20 * 4;
     const size_t elementsPerPart = FinnUtils::shapeToElements(myShapePacked);
