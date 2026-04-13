@@ -23,12 +23,15 @@
 
 #include "gtest/gtest.h"
 
+// Provides config and shapes for testing
+#include "UnittestConfig.h"
+
 using namespace Finn;
 
 class DeviceHandlerSetup : public ::testing::Test {
      protected:
-    std::string vbin_path = "../example_networks/single-layer-linear/finn_sim.vbin";
-    DeviceHandler handler = DeviceHandler(DeviceWrapper(vbin_path, "bb:dd:f", {std::make_shared<BufferDescriptor>("idma0", shape_t({1, 10, 1}))}, {std::make_shared<BufferDescriptor>("odma0", shape_t({1, 10, 1}))}), true, 1);
+    DeviceHandler handler =
+        DeviceHandler(DeviceWrapper(FinnUnittest::vbinPath, FinnUnittest::bdf, {std::make_shared<BufferDescriptor>("idma0", shape_t({1, 20, 4}))}, {std::make_shared<BufferDescriptor>("odma0", shape_t({1, 20, 4}))}), true, 1);
 
     void SetUp() override {}
 
@@ -42,27 +45,27 @@ TEST_F(DeviceHandlerSetup, InitTest) {
         vrt::Kernel kernel = handler.getDevice().getKernel(name);
         EXPECT_EQ(kernel.getName(), name);
     }
-    EXPECT_EQ(handler.getBDF(), "bb:dd:f");
+    EXPECT_EQ(handler.getBDF(), FinnUnittest::bdf);
 }
 
 TEST_F(DeviceHandlerSetup, StoreTest) {
     std::vector<uint8_t> input_data;
-    for (uint8_t i = 0; i < 10; i++) {
+    for (uint8_t i = 0; i < 20 * 4; i++) {
         input_data.push_back(i);
     }
     handler.store(std::span(input_data), "idma0");
 
     Finn::vector<uint8_t> input_buffer = handler.getInputBuffer("idma0")->testGetMap();
-    ASSERT_EQ(input_buffer.size(), 10);
-    for (uint8_t i = 0; i < 10; i++) {
+    ASSERT_EQ(input_buffer.size(), 20 * 4);
+    for (uint8_t i = 0; i < 20 * 4; i++) {
         EXPECT_EQ(input_buffer[i], i);
     }
 }
 
 TEST_F(DeviceHandlerSetup, RunTest) {
-    std::vector<uint8_t> input_data;
-    for (uint8_t i = 0; i < 10; i++) {
-        input_data.push_back(i);
+    std::vector<uint8_t> input_data(20 * 4);
+    for (uint8_t i = 0; i < 20; i++) {
+        reinterpret_cast<float*>(input_data.data())[i] = static_cast<float>(i);
     }
     handler.store(std::span(input_data), "idma0");
 
@@ -70,12 +73,12 @@ TEST_F(DeviceHandlerSetup, RunTest) {
     handler.wait();
     ASSERT_TRUE(handler.read());
 
-    Finn::vector<uint8_t> results = handler.retrieveResults("odma0", 10);
-    ASSERT_EQ(results.size(), 10);
+    Finn::vector<uint8_t> results = handler.retrieveResults("odma0", 20 * 4);
+    ASSERT_EQ(results.size(), 20 * 4);
     for (uint8_t i = 1; i < 9; i++) {
-        EXPECT_EQ(results[0], results[i]);
+        float output_value = reinterpret_cast<float*>(results.data())[i];
+        EXPECT_NEAR(output_value, std::min(1.0f, static_cast<float>(i) / 128), 0.01);
     }
-    EXPECT_EQ(0, results[9]);
 }
 
 /*

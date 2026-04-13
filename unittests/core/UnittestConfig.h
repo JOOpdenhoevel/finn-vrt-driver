@@ -49,7 +49,7 @@ namespace FinnUnittest {
     auto myShapeFolded = (*std::dynamic_pointer_cast<Finn::ExtendedBufferDescriptor>(unittestConfig.deviceWrappers[0].idmas[0])).foldedShape;
     auto myShapePacked = (*std::dynamic_pointer_cast<Finn::ExtendedBufferDescriptor>(unittestConfig.deviceWrappers[0].idmas[0])).packedShape;
 
-    const unsigned int hostBufferSize = 10;
+    const unsigned int hostBufferSize = 20 * 4;
     const size_t elementsPerPart = FinnUtils::shapeToElements(myShapePacked);
     const size_t parts = 10;
 }  // namespace FinnUnittest

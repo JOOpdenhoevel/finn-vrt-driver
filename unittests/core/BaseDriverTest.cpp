@@ -49,27 +49,27 @@ class TestDriver : public FinnUnittest::Driver<true> {
 };
 
 TEST_F(BaseDriverTest, BasicBaseDriverTest) {
-    auto filler = FinnUtils::BufferFiller(0, 255);
     auto driver = TestDriver(unittestConfig, hostBufferSize);
 
     Finn::vector<uint8_t> data;
-    Finn::vector<uint8_t> backupData;
     data.resize(driver.getTotalDataSize(bdf, inputDmaName));
 
-    filler.fillRandom(data.begin(), data.end());
-    backupData = data;
+    ASSERT_GE(data.size(), 20 * sizeof(float));
+    for (std::size_t i = 0; i < 20; i++) {
+        reinterpret_cast<float*>(data.data())[i] = static_cast<float>(i);
+    }
 
     // Setup fake output data
     driver.getDeviceHandler(bdf).getOutputBuffer(outputDmaName)->testSetMap(data);
 
     // Run inference
-    auto results = driver.inferR(data, bdf, inputDmaName, bdf, outputDmaName, hostBufferSize);
+    Finn::vector<uint8_t> results = driver.inferR(data, bdf, inputDmaName, bdf, outputDmaName, hostBufferSize);
 
     // Check results
-    for (std::size_t i = 1; i < 9; i++) {
-        EXPECT_EQ(results[0], results[i]);
+    for (std::size_t i = 0; i < 20; i++) {
+        float output_value = reinterpret_cast<float*>(results.data())[i];
+        EXPECT_NEAR(output_value, std::min(1.0f, static_cast<float>(i) / 128), 0.01);
     }
-    EXPECT_EQ(0, results[9]);
 }
 
 int main(int argc, char** argv) {
