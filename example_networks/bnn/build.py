@@ -34,6 +34,7 @@
 
 import os
 import torch
+import shutil
 from brevitas_examples import bnn_pynq
 from brevitas.export import export_qonnx
 from qonnx.core.datatype import DataType
@@ -60,6 +61,7 @@ import finn.transformation.streamline.absorb as absorb
 from finn.transformation.fpgadataflow.alveo_build import PrepareForLinking, SlashLink
 from finn.transformation.fpgadataflow.create_dataflow_partition import CreateDataflowPartition
 from finn.transformation.fpgadataflow.hlssynth_ip import HLSSynthIP
+from finn.transformation.fpgadataflow.make_driver import MakeCPPDriver
 from finn.transformation.fpgadataflow.minimize_accumulator_width import MinimizeAccumulatorWidth
 from finn.transformation.fpgadataflow.minimize_weight_bit_width import MinimizeWeightBitWidth
 from finn.transformation.fpgadataflow.prepare_ip import PrepareIP
@@ -227,3 +229,17 @@ model = model.transform(PrepareForLinking(fpga_part, target_clk_ns, "slash-vrt")
 model.save(build_output_dir + "/12_prepare_linking.onnx")
 model = model.transform(SlashLink())
 model.save(build_output_dir + "/12_linked.onnx")
+
+# --- Step 13: Prepare the driver configuration files
+print("Step 13: Prepare the driver configuration files")
+model = model.transform(MakeCPPDriver("slash-vrt", version="main"))
+model.save(build_output_dir + "/13_driver.onnx")
+
+# --- Step 14: Export the results
+bitfile_path =  model.get_metadata_prop("bitfile")
+print("Step 14: Export the results")
+shutil.copy(bitfile_path, build_output_dir + "/finn.vbin")
+
+cpp_driver_dir = model.get_metadata_prop("cpp_driver_dir")
+shutil.copy(cpp_driver_dir + "/acceleratorconfig.json", build_output_dir + "/acceleratorconfig.json")
+shutil.copy(cpp_driver_dir + "/AcceleratorDatatypes.h", build_output_dir + "/AcceleratorDatatypes.h")
